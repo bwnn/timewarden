@@ -25,6 +25,7 @@ declare namespace browser {
     }
 
     function sendMessage(message: unknown): Promise<unknown>;
+    function getURL(path: string): string;
 
     const onMessage: {
       addListener(
@@ -67,6 +68,7 @@ declare namespace browser {
     function query(queryInfo: Record<string, unknown>): Promise<Tab[]>;
     function update(tabId: number, updateProperties: Record<string, unknown>): Promise<Tab>;
     function get(tabId: number): Promise<Tab>;
+    function sendMessage(tabId: number, message: unknown): Promise<unknown>;
 
     const onActivated: {
       addListener(callback: (activeInfo: { tabId: number; windowId: number }) => void): void;

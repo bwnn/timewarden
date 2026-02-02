@@ -143,7 +143,20 @@ export type Message =
   | { type: 'GET_DOMAIN_CONFIGS' }
   | { type: 'SAVE_DOMAIN_CONFIG'; config: DomainConfig }
   | { type: 'REMOVE_DOMAIN'; domain: string }
-  | { type: 'SAVE_GLOBAL_SETTINGS'; settings: GlobalSettings };
+  | { type: 'SAVE_GLOBAL_SETTINGS'; settings: GlobalSettings }
+  | { type: 'GET_BLOCKED_STATUS'; domain: string };
+
+/** Response for the blocked page stats query */
+export interface BlockedStatusResponse {
+  domain: string;
+  timeSpentSeconds: number;
+  limitMinutes: number;
+  visitCount: number;
+  sessionCount: number;
+  longestSessionSeconds: number;
+  resetTime: string;
+  blockedAt: string | null;
+}
 
 export interface StatusResponse {
   domain: string;

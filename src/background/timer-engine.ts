@@ -32,6 +32,11 @@ import {
   getDomainUsage,
   getDomainConfigs,
 } from './storage-manager';
+import {
+  notifyTenPercentRemaining,
+  notifyFiveMinutesRemaining,
+} from './notification-manager';
+import { startGracePeriod, isDomainInGracePeriod } from './block-manager';
 
 // ============================================================
 // Serialized Reevaluation Queue
@@ -134,8 +139,8 @@ async function startTracking(domain: string, reason: 'focused' | 'audible'): Pro
   const settings = await getGlobalSettings();
   const { usage } = await getOrCreateDomainUsage(config, settings);
 
-  // If already blocked in this period, don't start tracking
-  if (usage.blocked) {
+  // If already blocked or in grace period, don't start tracking
+  if (usage.blocked || isDomainInGracePeriod(domain)) {
     return;
   }
 
@@ -284,7 +289,7 @@ async function clearTrackingAlarms(domain: string): Promise<void> {
 
 /**
  * Handle a notification threshold alarm (10% remaining or 5 minutes remaining).
- * Phase 4 will dispatch actual browser notifications; for now just mark as fired.
+ * Dispatches browser notifications and marks them as fired in storage.
  */
 export async function handleNotificationAlarm(alarmName: string): Promise<void> {
   let domain: string;
@@ -312,19 +317,33 @@ export async function handleNotificationAlarm(alarmName: string): Promise<void> 
     return u;
   });
 
+  // Dispatch browser notification
+  if (field === 'tenPercent') {
+    await notifyTenPercentRemaining(domain);
+  } else {
+    await notifyFiveMinutesRemaining(domain);
+  }
+
   console.log(`[TimeWarden] Notification alarm: ${field} for ${domain}`);
-  // Phase 4: dispatch browser.notifications.create() here
 }
 
 /**
  * Handle a limit-reached alarm.
- * Phase 4 will trigger grace period + blocking; for now just log.
+ * Stops tracking and triggers the grace period → blocking flow.
  */
 export async function handleLimitAlarm(alarmName: string): Promise<void> {
   const domain = alarmName.slice(ALARM_PREFIX.LIMIT_REACHED.length);
 
   console.log(`[TimeWarden] Limit reached for ${domain}`);
-  // Phase 4: trigger grace period → blocking
+
+  // Stop tracking — accumulate remaining time
+  const tracking = activeTracking.get(domain);
+  if (tracking?.startedAt) {
+    await stopTracking(domain);
+  }
+
+  // Start the grace period (which eventually blocks)
+  await startGracePeriod(domain);
 }
 
 // ============================================================

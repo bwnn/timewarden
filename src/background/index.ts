@@ -6,13 +6,15 @@
  * - Timer Engine: time tracking state machine, session recording
  * - Reset Manager: per-domain reset scheduling
  * - Storage Manager: all persistent data CRUD
+ * - Notification Manager: browser notification dispatch
+ * - Block Manager: grace period, tab redirection, navigation interception
  * - Message handling for UI communication
  *
  * This module wires the modules together, registers lifecycle
  * handlers, and dispatches alarms.
  */
 
-import type { Message } from '$lib/types';
+import type { Message, BlockedStatusResponse } from '$lib/types';
 import { ALARM_PREFIX } from '$lib/constants';
 import {
   loadStorage,
@@ -21,6 +23,8 @@ import {
   saveDomainConfig,
   removeDomainConfig,
   getDomainConfigs,
+  getDomainConfig,
+  getDomainUsage,
 } from './storage-manager';
 import {
   initTabTracker,
@@ -42,6 +46,14 @@ import {
   handleResetAlarm,
   checkMissedResets,
 } from './reset-manager';
+import { initNotificationClickHandler } from './notification-manager';
+import {
+  enforceExistingBlocks,
+  handleGraceEndAlarm,
+  isGraceEndAlarm,
+  handleNavigationCheck,
+} from './block-manager';
+import { getCurrentPeriodDate } from '$lib/utils';
 
 // ============================================================
 // Initialization
@@ -69,19 +81,28 @@ async function initialize(): Promise<void> {
     },
   });
 
-  // 2. Refresh the tracked domains cache
+  // 2. Initialize notification click handling
+  initNotificationClickHandler();
+
+  // 3. Register navigation interception for blocked domains
+  browser.tabs.onUpdated.addListener(handleNavigationCheck);
+
+  // 4. Refresh the tracked domains cache
   await refreshTrackedDomains();
 
-  // 3. Recover tab state from all open tabs
+  // 5. Recover tab state from all open tabs
   await recoverTabState();
 
-  // 4. Check for missed resets (browser may have been closed during a reset)
+  // 6. Check for missed resets (browser may have been closed during a reset)
   await checkMissedResets();
 
-  // 5. Schedule reset alarms for all domains
+  // 7. Schedule reset alarms for all domains
   await scheduleAllResets();
 
-  // 6. Reevaluate all domains to start tracking if applicable
+  // 8. Enforce existing blocks (redirect open tabs of blocked domains)
+  await enforceExistingBlocks();
+
+  // 9. Reevaluate all domains to start tracking if applicable
   scheduleReevaluation();
 
   console.log('[TimeWarden] Background initialized');
@@ -145,12 +166,71 @@ browser.runtime.onMessage.addListener(
           settings: storage.settings,
         }));
 
+      case 'GET_BLOCKED_STATUS':
+        return getBlockedStatusForDomain(message.domain);
+
       default:
         console.warn('[TimeWarden] Unknown message type:', message);
         return undefined;
     }
   }
 );
+
+// ============================================================
+// Blocked Status Query (for blocked.html)
+// ============================================================
+
+async function getBlockedStatusForDomain(domain: string): Promise<BlockedStatusResponse> {
+  const config = await getDomainConfig(domain);
+  if (!config) {
+    return {
+      domain,
+      timeSpentSeconds: 0,
+      limitMinutes: 0,
+      visitCount: 0,
+      sessionCount: 0,
+      longestSessionSeconds: 0,
+      resetTime: '00:00',
+      blockedAt: null,
+    };
+  }
+
+  const settings = await getGlobalSettings();
+  const date = getCurrentPeriodDate(config, settings.resetTime);
+  const usage = await getDomainUsage(domain, date);
+
+  if (!usage) {
+    return {
+      domain,
+      timeSpentSeconds: 0,
+      limitMinutes: config.dailyLimitMinutes,
+      visitCount: 0,
+      sessionCount: 0,
+      longestSessionSeconds: 0,
+      resetTime: settings.resetTime,
+      blockedAt: null,
+    };
+  }
+
+  // Compute longest session
+  let longestSessionSeconds = 0;
+  for (const session of usage.sessions) {
+    if (session.durationSeconds > longestSessionSeconds) {
+      longestSessionSeconds = session.durationSeconds;
+    }
+  }
+
+  return {
+    domain,
+    timeSpentSeconds: usage.timeSpentSeconds,
+    limitMinutes: usage.limitMinutes,
+    visitCount: usage.visitCount,
+    sessionCount: usage.sessions.length,
+    longestSessionSeconds: Math.floor(longestSessionSeconds),
+    resetTime: usage.resetTime,
+    blockedAt: usage.blockedAt,
+  };
+}
 
 // ============================================================
 // Alarm Dispatcher
@@ -163,6 +243,10 @@ browser.alarms.onAlarm.addListener((alarm) => {
     const domain = name.slice(ALARM_PREFIX.RESET.length);
     handleResetAlarm(domain, () => scheduleReevaluation()).catch((err) =>
       console.error('[TimeWarden] Reset alarm error:', err)
+    );
+  } else if (isGraceEndAlarm(name)) {
+    handleGraceEndAlarm(name).catch((err) =>
+      console.error('[TimeWarden] Grace end alarm error:', err)
     );
   } else if (
     name.startsWith(ALARM_PREFIX.NOTIFY_TEN_PERCENT) ||

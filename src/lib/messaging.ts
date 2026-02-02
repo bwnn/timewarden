@@ -5,7 +5,7 @@
  * Uses browser.runtime.sendMessage / onMessage.
  */
 
-import type { Message, StatusResponse, DomainConfig, GlobalSettings, DailyUsage } from './types';
+import type { Message, StatusResponse, BlockedStatusResponse, DomainConfig, GlobalSettings, DailyUsage } from './types';
 
 // ============================================================
 // Response Types
@@ -73,4 +73,8 @@ export async function removeDomain(domain: string): Promise<{ success: boolean }
 
 export async function saveGlobalSettings(settings: GlobalSettings): Promise<{ success: boolean }> {
   return sendMessage<{ success: boolean }>({ type: 'SAVE_GLOBAL_SETTINGS', settings });
+}
+
+export async function getBlockedStatus(domain: string): Promise<BlockedStatusResponse> {
+  return sendMessage<BlockedStatusResponse>({ type: 'GET_BLOCKED_STATUS', domain });
 }
