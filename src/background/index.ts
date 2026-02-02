@@ -14,8 +14,7 @@
  */
 
 import type { Message } from '$lib/types';
-import { DEFAULT_STORAGE } from '$lib/constants';
-import { loadStorage, saveStorage, getGlobalSettings, saveGlobalSettings, getDomainConfigs, saveDomainConfig, removeDomainConfig } from './storage-manager';
+import { loadStorage, getGlobalSettings, saveGlobalSettings, saveDomainConfig, removeDomainConfig } from './storage-manager';
 
 // ============================================================
 // Initialization
@@ -38,7 +37,8 @@ async function initialize(): Promise<void> {
 // ============================================================
 
 browser.runtime.onMessage.addListener(
-  (message: Message, _sender: browser.runtime.MessageSender): Promise<unknown> | undefined => {
+  (rawMessage: unknown, _sender: browser.runtime.MessageSender): Promise<unknown> | undefined => {
+    const message = rawMessage as Message;
     switch (message.type) {
       case 'GET_SETTINGS':
         return getGlobalSettings();

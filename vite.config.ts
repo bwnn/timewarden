@@ -1,8 +1,10 @@
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import tailwindcss from '@tailwindcss/vite';
-import { resolve } from 'path';
-import { copyFileSync, renameSync, rmSync, mkdirSync, existsSync, readdirSync } from 'fs';
+import { resolve } from 'node:path';
+import { copyFileSync, renameSync, rmSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
+
+const __dirname = import.meta.dirname;
 
 export default defineConfig({
   plugins: [

@@ -1,4 +1,4 @@
-import type { DayOfWeek, DomainConfig, GlobalSettings } from './types';
+import type { DayOfWeek, DomainConfig } from './types';
 
 // ============================================================
 // Time Formatting
