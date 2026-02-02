@@ -48,6 +48,10 @@ declare namespace browser {
     const onStartup: {
       addListener(callback: () => void): void;
     };
+
+    const onSuspend: {
+      addListener(callback: () => void): void;
+    };
   }
 
   namespace tabs {
@@ -137,6 +141,7 @@ declare namespace browser {
     type IdleState = 'active' | 'idle' | 'locked';
 
     function queryState(detectionIntervalInSeconds: number): Promise<IdleState>;
+    function setDetectionInterval(intervalInSeconds: number): void;
 
     const onStateChanged: {
       addListener(callback: (newState: IdleState) => void): void;
