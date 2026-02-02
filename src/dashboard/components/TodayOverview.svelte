@@ -18,18 +18,18 @@
 
   function getBarBgColor(color: 'green' | 'yellow' | 'red'): string {
     switch (color) {
-      case 'green': return 'bg-emerald-100';
-      case 'yellow': return 'bg-amber-100';
-      case 'red': return 'bg-red-100';
+      case 'green': return 'bg-emerald-100 dark:bg-emerald-900/40';
+      case 'yellow': return 'bg-amber-100 dark:bg-amber-900/40';
+      case 'red': return 'bg-red-100 dark:bg-red-900/40';
     }
   }
 </script>
 
-<section>
-  <h2 class="text-lg font-semibold text-gray-900 mb-4">Today's Overview</h2>
+<section aria-label="Today's overview">
+  <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Today's Overview</h2>
 
   {#if !today || today.domains.length === 0}
-    <div class="bg-white rounded-lg border border-gray-200 p-6 text-center text-gray-500">
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 text-center text-gray-500 dark:text-gray-400">
       No tracked activity today.
     </div>
   {:else}
@@ -39,28 +39,35 @@
         {@const color = getProgressColor(domain.timeSpentSeconds, domain.limitMinutes)}
         {@const remaining = Math.max(0, domain.limitMinutes * 60 - domain.timeSpentSeconds)}
 
-        <div class="bg-white rounded-lg border border-gray-200 p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
           <div class="flex items-center justify-between mb-2">
             <div class="flex items-center gap-2">
-              <span class="font-medium text-gray-900">{domain.domain}</span>
+              <span class="font-medium text-gray-900 dark:text-gray-100">{domain.domain}</span>
               {#if domain.blocked}
-                <span class="text-xs font-medium px-1.5 py-0.5 rounded bg-red-100 text-red-700">BLOCKED</span>
+                <span class="text-xs font-medium px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300">BLOCKED</span>
               {/if}
             </div>
-            <span class="text-sm text-gray-500">
+            <span class="text-sm text-gray-500 dark:text-gray-400">
               {formatTimeRemaining(domain.timeSpentSeconds)} / {formatLimitMinutes(domain.limitMinutes)}
             </span>
           </div>
 
           <!-- Progress bar -->
-          <div class="w-full h-2 rounded-full {getBarBgColor(color)} mb-2">
+          <div
+            class="w-full h-2 rounded-full {getBarBgColor(color)} mb-2"
+            role="progressbar"
+            aria-valuenow={Math.floor(percent)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="{domain.domain}: {Math.floor(percent)}% used"
+          >
             <div
               class="h-full rounded-full transition-all duration-300 {getBarColor(color)}"
               style="width: {Math.min(100, percent)}%"
             ></div>
           </div>
 
-          <div class="flex items-center justify-between text-xs text-gray-500">
+          <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
             <span>
               {domain.visitCount} visit{domain.visitCount !== 1 ? 's' : ''}
               &middot;
@@ -79,8 +86,8 @@
     </div>
 
     <!-- Total time today -->
-    <div class="mt-3 text-sm text-gray-600 text-right">
-      Total today: <span class="font-medium text-gray-900">{formatTimeRemaining(today.totalSeconds)}</span>
+    <div class="mt-3 text-sm text-gray-600 dark:text-gray-400 text-right">
+      Total today: <span class="font-medium text-gray-900 dark:text-gray-100">{formatTimeRemaining(today.totalSeconds)}</span>
     </div>
   {/if}
 </section>

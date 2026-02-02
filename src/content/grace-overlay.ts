@@ -22,6 +22,9 @@ if (!(window as unknown as Record<string, boolean>).__timewardenGraceOverlay) {
 
   const overlay = document.createElement('div');
   overlay.id = 'timewarden-grace-overlay';
+  overlay.setAttribute('role', 'alertdialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-label', 'Time limit reached — grace period countdown');
   overlay.style.cssText = `
     position: fixed;
     top: 0;
@@ -81,6 +84,9 @@ if (!(window as unknown as Record<string, boolean>).__timewardenGraceOverlay) {
   `;
 
   const countdownNumber = document.createElement('div');
+  countdownNumber.setAttribute('aria-live', 'polite');
+  countdownNumber.setAttribute('aria-atomic', 'true');
+  countdownNumber.setAttribute('role', 'timer');
   countdownNumber.style.cssText = `
     font-size: 72px;
     font-weight: 700;

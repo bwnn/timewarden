@@ -118,18 +118,18 @@
 </script>
 
 <section>
-  <h2 class="text-lg font-semibold text-gray-900 mb-4">Daily Usage</h2>
+  <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Daily Usage</h2>
 
   {#if days.length === 0 || domains.length === 0}
-    <div class="bg-white rounded-lg border border-gray-200 p-6 text-center text-gray-500">
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 text-center text-gray-500 dark:text-gray-400">
       No usage data for this period.
     </div>
   {:else}
-    <div class="bg-white rounded-lg border border-gray-200 p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
       <!-- Legend -->
       <div class="flex flex-wrap gap-3 mb-3">
         {#each domains as domain, i}
-          <div class="flex items-center gap-1.5 text-xs text-gray-600">
+          <div class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
             <span
               class="inline-block w-3 h-3 rounded-sm"
               style="background: {getDomainColor(domain, i)}"

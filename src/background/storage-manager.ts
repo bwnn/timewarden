@@ -26,21 +26,48 @@ import { getEffectiveLimit, getEffectiveResetTime, getCurrentPeriodDate } from '
 
 /**
  * Load the full storage schema, merging with defaults for missing keys.
+ * Handles corrupt or missing storage gracefully by falling back to defaults.
  */
 export async function loadStorage(): Promise<StorageSchema> {
-  const result = await browser.storage.local.get(['domains', 'usage', 'settings']);
-  return {
-    domains: (result.domains as StorageSchema['domains']) ?? [...DEFAULT_STORAGE.domains],
-    usage: (result.usage as StorageSchema['usage']) ?? [...DEFAULT_STORAGE.usage],
-    settings: (result.settings as StorageSchema['settings']) ?? { ...DEFAULT_STORAGE.settings },
-  };
+  try {
+    const result = await browser.storage.local.get(['domains', 'usage', 'settings']);
+
+    // Validate and sanitize each field — fall back to defaults if corrupt
+    const domains = Array.isArray(result.domains)
+      ? (result.domains as StorageSchema['domains'])
+      : [...DEFAULT_STORAGE.domains];
+
+    const usage = Array.isArray(result.usage)
+      ? (result.usage as StorageSchema['usage'])
+      : [...DEFAULT_STORAGE.usage];
+
+    const settings =
+      result.settings && typeof result.settings === 'object' && !Array.isArray(result.settings)
+        ? { ...DEFAULT_STORAGE.settings, ...(result.settings as Partial<GlobalSettings>) }
+        : { ...DEFAULT_STORAGE.settings };
+
+    return { domains, usage, settings };
+  } catch (err) {
+    console.error('[TimeWarden] Storage load failed, using defaults:', err);
+    return {
+      domains: [...DEFAULT_STORAGE.domains],
+      usage: [...DEFAULT_STORAGE.usage],
+      settings: { ...DEFAULT_STORAGE.settings },
+    };
+  }
 }
 
 /**
- * Save partial storage data.
+ * Save partial storage data. Logs errors but does not throw to prevent
+ * cascading failures in the tracking engine.
  */
 export async function saveStorage(data: Partial<StorageSchema>): Promise<void> {
-  await browser.storage.local.set(data);
+  try {
+    await browser.storage.local.set(data);
+  } catch (err) {
+    console.error('[TimeWarden] Storage save failed:', err);
+    throw err; // Re-throw so callers can handle if needed
+  }
 }
 
 // ============================================================

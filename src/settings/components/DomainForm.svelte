@@ -78,13 +78,13 @@
   }
 </script>
 
-<div class="bg-white border border-blue-200 rounded-lg shadow-sm p-6">
-  <h3 class="text-base font-semibold text-gray-900 mb-4">Add New Domain</h3>
+<div class="bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-800 rounded-lg shadow-sm p-6">
+  <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Add New Domain</h3>
 
   <form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-4">
     <!-- Domain Input -->
     <div>
-      <label for="new-domain" class="block text-sm font-medium text-gray-700 mb-1">
+      <label for="new-domain" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
         Domain
       </label>
       <input
@@ -92,42 +92,48 @@
         type="text"
         bind:value={domainInput}
         placeholder="youtube.com"
-        class="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm
-               placeholder:text-gray-400
+        aria-describedby={wwwWarning ? 'www-warning' : undefined}
+        aria-invalid={error ? 'true' : undefined}
+        class="block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
+               placeholder:text-gray-400 dark:placeholder:text-gray-500
                focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
       />
       {#if wwwWarning}
-        <p class="mt-1 text-xs text-amber-600">{wwwWarning}</p>
+        <p id="www-warning" class="mt-1 text-xs text-amber-600 dark:text-amber-400">{wwwWarning}</p>
       {/if}
     </div>
 
     <!-- Daily Limit -->
-    <div>
-      <span class="block text-sm font-medium text-gray-700 mb-1">Daily Limit</span>
+    <fieldset>
+      <legend class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Daily Limit</legend>
       <div class="flex items-center gap-2">
+        <label class="sr-only" for="add-limit-hours">Hours</label>
         <input
+          id="add-limit-hours"
           type="number"
           bind:value={hours}
           min="0"
           max="24"
-          class="w-20 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm
+          class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
                  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
         />
-        <span class="text-sm text-gray-500">hours</span>
+        <span class="text-sm text-gray-500 dark:text-gray-400">hours</span>
+        <label class="sr-only" for="add-limit-minutes">Minutes</label>
         <input
+          id="add-limit-minutes"
           type="number"
           bind:value={minutes}
           min="0"
           max="59"
-          class="w-20 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm
+          class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
                  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
         />
-        <span class="text-sm text-gray-500">minutes</span>
+        <span class="text-sm text-gray-500 dark:text-gray-400">minutes</span>
       </div>
-    </div>
+    </fieldset>
 
     {#if error}
-      <p class="text-sm text-red-600">{error}</p>
+      <p class="text-sm text-red-600 dark:text-red-400" role="alert">{error}</p>
     {/if}
 
     <!-- Actions -->
@@ -135,8 +141,8 @@
       <button
         type="button"
         onclick={oncancel}
-        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md
-               hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300"
+        class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md
+               hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-600"
       >
         Cancel
       </button>

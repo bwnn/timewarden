@@ -16,6 +16,9 @@
 
 import type { Message, BlockedStatusResponse } from '$lib/types';
 import { ALARM_PREFIX } from '$lib/constants';
+
+/** Alarm name for periodic badge text refresh */
+const BADGE_REFRESH_ALARM = 'badge-refresh';
 import {
   loadStorage,
   getGlobalSettings,
@@ -67,54 +70,69 @@ import { getCurrentPeriodDate } from '$lib/utils';
  * Full initialization sequence.
  * Called on install, startup, and service worker restart.
  */
+/** Tracks whether initialization has completed to prevent duplicate setup */
+let initialized = false;
+
 async function initialize(): Promise<void> {
-  const storage = await loadStorage();
-  console.log('[TimeWarden] Background initializing', {
-    domains: storage.domains.length,
-    usageDays: storage.usage.length,
-  });
+  try {
+    const storage = await loadStorage();
+    console.log('[TimeWarden] Background initializing', {
+      domains: storage.domains.length,
+      usageDays: storage.usage.length,
+    });
 
-  // 1. Initialize the tab tracker with callbacks
-  initTabTracker({
-    onStateChange: () => scheduleReevaluation(),
-    onVisit: (domain) => {
-      // Fire-and-forget — visit counting is best-effort
-      handleVisit(domain).catch((err) =>
-        console.error('[TimeWarden] Visit count error:', err)
-      );
-    },
-  });
+    // 1. Initialize the tab tracker with callbacks (idempotent — guards internally)
+    if (!initialized) {
+      initTabTracker({
+        onStateChange: () => scheduleReevaluation(),
+        onVisit: (domain) => {
+          // Fire-and-forget — visit counting is best-effort
+          handleVisit(domain).catch((err) =>
+            console.error('[TimeWarden] Visit count error:', err)
+          );
+        },
+      });
 
-  // 2. Initialize notification click handling
-  initNotificationClickHandler();
+      // 2. Initialize notification click handling
+      initNotificationClickHandler();
 
-  // 3. Register navigation interception for blocked domains
-  browser.tabs.onUpdated.addListener(handleNavigationCheck);
+      // 3. Register navigation interception for blocked domains
+      browser.tabs.onUpdated.addListener(handleNavigationCheck);
+    }
 
-  // 4. Refresh the tracked domains cache
-  await refreshTrackedDomains();
+    // 4. Refresh the tracked domains cache
+    await refreshTrackedDomains();
 
-  // 5. Recover tab state from all open tabs
-  await recoverTabState();
+    // 5. Recover tab state from all open tabs
+    await recoverTabState();
 
-  // 6. Check for missed resets (browser may have been closed during a reset)
-  await checkMissedResets();
+    // 6. Check for missed resets (browser may have been closed during a reset)
+    await checkMissedResets();
 
-  // 7. Schedule reset alarms for all domains
-  await scheduleAllResets();
+    // 7. Schedule reset alarms for all domains
+    await scheduleAllResets();
 
-  // 8. Enforce existing blocks (redirect open tabs of blocked domains)
-  await enforceExistingBlocks();
+    // 8. Enforce existing blocks (redirect open tabs of blocked domains)
+    await enforceExistingBlocks();
 
-  // 9. Reevaluate all domains to start tracking if applicable
-  scheduleReevaluation();
+    // 9. Schedule periodic badge refresh (every 30 seconds for time-remaining accuracy)
+    browser.alarms.create(BADGE_REFRESH_ALARM, { periodInMinutes: 0.5 });
 
-  // 10. Initial badge update
-  updateBadge().catch((err) =>
-    console.error('[TimeWarden] Initial badge update error:', err)
-  );
+    // 10. Reevaluate all domains to start tracking if applicable
+    scheduleReevaluation();
 
-  console.log('[TimeWarden] Background initialized');
+    // 11. Initial badge update
+    updateBadge().catch((err) =>
+      console.error('[TimeWarden] Initial badge update error:', err)
+    );
+
+    initialized = true;
+    console.log('[TimeWarden] Background initialized');
+  } catch (err) {
+    console.error('[TimeWarden] Initialization failed:', err);
+    // Attempt basic recovery: schedule a retry after 5 seconds
+    setTimeout(() => initialize(), 5000);
+  }
 }
 
 // ============================================================
@@ -124,15 +142,26 @@ async function initialize(): Promise<void> {
 browser.runtime.onMessage.addListener(
   (rawMessage: unknown, _sender: browser.runtime.MessageSender): Promise<unknown> | undefined => {
     const message = rawMessage as Message;
+
+    // Wrap each handler in error handling to prevent unhandled rejections
+    // from propagating to the sender as opaque errors.
+    function safeHandler(handler: () => Promise<unknown>): Promise<unknown> {
+      return handler().catch((err) => {
+        console.error(`[TimeWarden] Message handler error (${message.type}):`, err);
+        return { error: 'Internal error', type: message.type };
+      });
+    }
+
     switch (message.type) {
       case 'GET_SETTINGS':
-        return getGlobalSettings();
+        return safeHandler(() => getGlobalSettings());
 
       case 'GET_DOMAIN_CONFIGS':
-        return getDomainConfigs();
+        return safeHandler(() => getDomainConfigs());
 
       case 'SAVE_GLOBAL_SETTINGS':
-        return saveGlobalSettings(message.settings).then(async () => {
+        return safeHandler(async () => {
+          await saveGlobalSettings(message.settings);
           // Reset times may have changed — reschedule resets and refresh cache
           await refreshTrackedDomains();
           await scheduleAllResets();
@@ -141,7 +170,8 @@ browser.runtime.onMessage.addListener(
         });
 
       case 'SAVE_DOMAIN_CONFIG':
-        return saveDomainConfig(message.config).then(async () => {
+        return safeHandler(async () => {
+          await saveDomainConfig(message.config);
           // Domain config changed — refresh cache and reschedule
           await refreshTrackedDomains();
           await scheduleNextReset(message.config.domain);
@@ -150,7 +180,8 @@ browser.runtime.onMessage.addListener(
         });
 
       case 'REMOVE_DOMAIN':
-        return removeDomainConfig(message.domain).then(async () => {
+        return safeHandler(async () => {
+          await removeDomainConfig(message.domain);
           // Domain removed — refresh cache, clear its reset alarm
           await refreshTrackedDomains();
           await browser.alarms.clear(`${ALARM_PREFIX.RESET}${message.domain}`);
@@ -159,23 +190,25 @@ browser.runtime.onMessage.addListener(
         });
 
       case 'GET_STATUS':
-        return getStatusForDomain(message.domain);
+        return safeHandler(() => getStatusForDomain(message.domain));
 
       case 'GET_ALL_STATUS':
-        return getAllDomainStatus();
+        return safeHandler(() => getAllDomainStatus());
 
       case 'TOGGLE_PAUSE':
-        return togglePauseImpl(message.domain);
+        return safeHandler(() => togglePauseImpl(message.domain));
 
       case 'GET_DASHBOARD_DATA':
-        return loadStorage().then((storage) => ({
-          usage: storage.usage,
-          domains: storage.domains,
-          settings: storage.settings,
-        }));
+        return safeHandler(() =>
+          loadStorage().then((storage) => ({
+            usage: storage.usage,
+            domains: storage.domains,
+            settings: storage.settings,
+          }))
+        );
 
       case 'GET_BLOCKED_STATUS':
-        return getBlockedStatusForDomain(message.domain);
+        return safeHandler(() => getBlockedStatusForDomain(message.domain));
 
       default:
         console.warn('[TimeWarden] Unknown message type:', message);
@@ -247,7 +280,11 @@ async function getBlockedStatusForDomain(domain: string): Promise<BlockedStatusR
 browser.alarms.onAlarm.addListener((alarm) => {
   const { name } = alarm;
 
-  if (name.startsWith(ALARM_PREFIX.RESET)) {
+  if (name === BADGE_REFRESH_ALARM) {
+    updateBadge().catch((err) =>
+      console.error('[TimeWarden] Badge refresh alarm error:', err)
+    );
+  } else if (name.startsWith(ALARM_PREFIX.RESET)) {
     const domain = name.slice(ALARM_PREFIX.RESET.length);
     handleResetAlarm(domain, () => scheduleReevaluation()).catch((err) =>
       console.error('[TimeWarden] Reset alarm error:', err)

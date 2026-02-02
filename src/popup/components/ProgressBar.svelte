@@ -21,14 +21,21 @@
 
   let bgColorClass = $derived(
     color === 'green'
-      ? 'bg-green-100'
+      ? 'bg-green-100 dark:bg-green-900/40'
       : color === 'yellow'
-        ? 'bg-yellow-100'
-        : 'bg-red-100'
+        ? 'bg-yellow-100 dark:bg-yellow-900/40'
+        : 'bg-red-100 dark:bg-red-900/40'
   );
 </script>
 
-<div class="w-full h-3 rounded-full {bgColorClass} overflow-hidden">
+<div
+  class="w-full h-3 rounded-full {bgColorClass} overflow-hidden"
+  role="progressbar"
+  aria-valuenow={Math.floor(usedPercent)}
+  aria-valuemin={0}
+  aria-valuemax={100}
+  aria-label="Time usage: {Math.floor(usedPercent)}% used"
+>
   <div
     class="h-full rounded-full transition-all duration-500 ease-out {barColorClass}"
     style="width: {Math.min(100, usedPercent)}%"

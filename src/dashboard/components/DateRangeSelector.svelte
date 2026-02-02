@@ -15,13 +15,15 @@
   ];
 </script>
 
-<div class="inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
+<div class="inline-flex rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-0.5" role="radiogroup" aria-label="Date range">
   {#each options as opt}
     <button
       type="button"
+      role="radio"
+      aria-checked={value === opt.value}
       class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors {value === opt.value
         ? 'bg-blue-500 text-white shadow-sm'
-        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
+        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700'}"
       onclick={() => onchange(opt.value)}
     >
       {opt.label}
