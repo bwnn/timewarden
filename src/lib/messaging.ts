@@ -59,6 +59,10 @@ export async function getSettings(): Promise<GlobalSettings> {
   return sendMessage<GlobalSettings>({ type: 'GET_SETTINGS' });
 }
 
+export async function getDomainConfigs(): Promise<DomainConfig[]> {
+  return sendMessage<DomainConfig[]>({ type: 'GET_DOMAIN_CONFIGS' });
+}
+
 export async function saveDomainConfig(config: DomainConfig): Promise<{ success: boolean }> {
   return sendMessage<{ success: boolean }>({ type: 'SAVE_DOMAIN_CONFIG', config });
 }

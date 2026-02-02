@@ -140,6 +140,7 @@ export type Message =
   | { type: 'TOGGLE_PAUSE'; domain: string }
   | { type: 'GET_DASHBOARD_DATA'; range: '7d' | '14d' | '30d' }
   | { type: 'GET_SETTINGS' }
+  | { type: 'GET_DOMAIN_CONFIGS' }
   | { type: 'SAVE_DOMAIN_CONFIG'; config: DomainConfig }
   | { type: 'REMOVE_DOMAIN'; domain: string }
   | { type: 'SAVE_GLOBAL_SETTINGS'; settings: GlobalSettings };

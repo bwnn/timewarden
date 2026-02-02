@@ -14,7 +14,7 @@
  */
 
 import type { Message } from '$lib/types';
-import { loadStorage, getGlobalSettings, saveGlobalSettings, saveDomainConfig, removeDomainConfig } from './storage-manager';
+import { loadStorage, getGlobalSettings, saveGlobalSettings, saveDomainConfig, removeDomainConfig, getDomainConfigs } from './storage-manager';
 
 // ============================================================
 // Initialization
@@ -42,6 +42,9 @@ browser.runtime.onMessage.addListener(
     switch (message.type) {
       case 'GET_SETTINGS':
         return getGlobalSettings();
+
+      case 'GET_DOMAIN_CONFIGS':
+        return getDomainConfigs();
 
       case 'SAVE_GLOBAL_SETTINGS':
         return saveGlobalSettings(message.settings).then(() => ({ success: true }));
