@@ -26,6 +26,7 @@ declare namespace browser {
 
     function sendMessage(message: unknown): Promise<unknown>;
     function getURL(path: string): string;
+    function openOptionsPage(): Promise<void>;
 
     const onMessage: {
       addListener(
