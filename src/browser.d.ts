@@ -66,6 +66,7 @@ declare namespace browser {
     }
 
     function query(queryInfo: Record<string, unknown>): Promise<Tab[]>;
+    function create(createProperties: Record<string, unknown>): Promise<Tab>;
     function update(tabId: number, updateProperties: Record<string, unknown>): Promise<Tab>;
     function get(tabId: number): Promise<Tab>;
     function sendMessage(tabId: number, message: unknown): Promise<unknown>;

@@ -19,6 +19,7 @@ import { ALARM_PREFIX, NOTIFICATION_THRESHOLDS } from '$lib/constants';
 import { getCurrentPeriodDate, getEffectiveLimit } from '$lib/utils';
 import {
   activeTracking,
+  tabDomainMap,
   focusedWindowId,
   activeTabId,
   isSystemIdle,
@@ -37,6 +38,27 @@ import {
   notifyFiveMinutesRemaining,
 } from './notification-manager';
 import { startGracePeriod, isDomainInGracePeriod } from './block-manager';
+import { formatBadgeText } from '$lib/utils';
+
+// ============================================================
+// Pause State (runtime-only — does NOT persist across restart)
+// ============================================================
+
+/** Alarm prefix for pause-end alarms */
+const PAUSE_ALARM_PREFIX = 'pause-end-';
+
+/** Per-domain pause state */
+interface PauseState {
+  /** Timestamp (ms) when pause started */
+  pausedAt: number;
+  /** Pause seconds already consumed in this period BEFORE this pause */
+  previousPausedSeconds: number;
+  /** Total pause allowance for this domain in seconds */
+  allowanceSeconds: number;
+}
+
+/** Maps domain -> pause state. Only present while actively paused. */
+const pausedDomains = new Map<string, PauseState>();
 
 // ============================================================
 // Serialized Reevaluation Queue
@@ -92,6 +114,11 @@ async function reevaluateAllDomainsImpl(): Promise<void> {
 
   // Clean up entries with no tabs and no active tracking
   cleanupStaleEntries();
+
+  // Update toolbar badge after reevaluation
+  updateBadge().catch((err) => {
+    console.error('[TimeWarden] Badge update error:', err);
+  });
 }
 
 /**
@@ -102,6 +129,9 @@ async function reevaluateAllDomainsImpl(): Promise<void> {
  */
 function shouldTrackDomain(domain: string): 'focused' | 'audible' | false {
   if (isSystemIdle) return false;
+
+  // Paused domains should not be tracked
+  if (pausedDomains.has(domain)) return false;
 
   const tracking = activeTracking.get(domain);
   if (!tracking || tracking.tabs.size === 0) return false;
@@ -380,6 +410,13 @@ export async function getStatusForDomain(domain: string): Promise<StatusResponse
   const limitSeconds = limitMinutes * 60;
   const timeRemainingSeconds = Math.max(0, limitSeconds - timeSpentSeconds);
 
+  // Compute pause state
+  const pauseInfo = getPauseState(
+    domain,
+    usage?.pausedSeconds ?? 0,
+    config.pauseAllowanceMinutes
+  );
+
   return {
     domain,
     timeSpentSeconds: Math.floor(timeSpentSeconds),
@@ -387,8 +424,8 @@ export async function getStatusForDomain(domain: string): Promise<StatusResponse
     limitMinutes,
     visitCount: usage?.visitCount ?? 0,
     sessionCount: usage?.sessions.length ?? 0,
-    isPaused: false, // Phase 5
-    pauseRemainingSeconds: 0, // Phase 5
+    isPaused: pauseInfo.isPaused,
+    pauseRemainingSeconds: pauseInfo.pauseRemainingSeconds,
     isBlocked: usage?.blocked ?? false,
     isTracking,
     trackingReason: tracking?.reason ?? null,
@@ -472,4 +509,219 @@ export async function persistAllTracking(): Promise<void> {
 
     console.log(`[TimeWarden] Persisted ${domain} on suspend (+${elapsed.toFixed(1)}s)`);
   }
+}
+
+// ============================================================
+// Pause Functionality
+// ============================================================
+
+/**
+ * Toggle pause for a domain.
+ * Returns { success, isPaused, pauseRemainingSeconds }.
+ *
+ * When pausing:
+ * - Stops tracking (accumulates elapsed time to storage)
+ * - Records pause start time
+ * - Schedules pause-end alarm for when allowance runs out
+ *
+ * When resuming:
+ * - Records paused seconds to storage
+ * - Clears pause-end alarm
+ * - Triggers reevaluation to restart tracking if applicable
+ */
+export async function togglePause(domain: string): Promise<{
+  success: boolean;
+  isPaused: boolean;
+  pauseRemainingSeconds: number;
+}> {
+  const config = await getDomainConfig(domain);
+  if (!config || !config.enabled) {
+    return { success: false, isPaused: false, pauseRemainingSeconds: 0 };
+  }
+
+  const settings = await getGlobalSettings();
+  const date = getCurrentPeriodDate(config, settings.resetTime);
+  const usage = await getDomainUsage(domain, date);
+
+  // Can't pause a blocked domain
+  if (usage?.blocked) {
+    return { success: false, isPaused: false, pauseRemainingSeconds: 0 };
+  }
+
+  const pausedSecondsUsed = usage?.pausedSeconds ?? 0;
+  const allowanceSeconds = config.pauseAllowanceMinutes * 60;
+
+  if (pausedDomains.has(domain)) {
+    // Currently paused → RESUME
+    const pauseState = pausedDomains.get(domain)!;
+    const pauseElapsed = (Date.now() - pauseState.pausedAt) / 1000;
+
+    // Record paused time to storage
+    await updateDomainUsage(domain, date, (u) => {
+      u.pausedSeconds += pauseElapsed;
+      return u;
+    });
+
+    // Clear pause state and alarm
+    pausedDomains.delete(domain);
+    await browser.alarms.clear(`${PAUSE_ALARM_PREFIX}${domain}`);
+
+    // Trigger reevaluation to potentially restart tracking
+    scheduleReevaluation();
+
+    const remaining = Math.max(0, allowanceSeconds - pausedSecondsUsed - pauseElapsed);
+    console.log(`[TimeWarden] Resumed ${domain} (paused ${pauseElapsed.toFixed(1)}s, ${remaining.toFixed(0)}s allowance left)`);
+
+    return {
+      success: true,
+      isPaused: false,
+      pauseRemainingSeconds: Math.floor(remaining),
+    };
+  } else {
+    // Not paused → PAUSE
+    const remainingAllowance = allowanceSeconds - pausedSecondsUsed;
+    if (remainingAllowance <= 0) {
+      // No pause allowance left
+      return { success: false, isPaused: false, pauseRemainingSeconds: 0 };
+    }
+
+    // Stop tracking first (accumulates elapsed to storage)
+    const tracking = activeTracking.get(domain);
+    if (tracking?.startedAt) {
+      await stopTracking(domain);
+    }
+
+    // Record pause state
+    pausedDomains.set(domain, {
+      pausedAt: Date.now(),
+      previousPausedSeconds: pausedSecondsUsed,
+      allowanceSeconds,
+    });
+
+    // Schedule alarm for when allowance runs out
+    browser.alarms.create(`${PAUSE_ALARM_PREFIX}${domain}`, {
+      when: Date.now() + remainingAllowance * 1000,
+    });
+
+    console.log(`[TimeWarden] Paused ${domain} (${remainingAllowance.toFixed(0)}s allowance remaining)`);
+
+    return {
+      success: true,
+      isPaused: true,
+      pauseRemainingSeconds: Math.floor(remainingAllowance),
+    };
+  }
+}
+
+/**
+ * Handle a pause-end alarm — pause allowance exhausted.
+ * Resume tracking automatically.
+ */
+export async function handlePauseEndAlarm(alarmName: string): Promise<void> {
+  const domain = alarmName.slice(PAUSE_ALARM_PREFIX.length);
+  const pauseState = pausedDomains.get(domain);
+  if (!pauseState) return;
+
+  const pauseElapsed = (Date.now() - pauseState.pausedAt) / 1000;
+
+  // Record paused time to storage
+  const config = await getDomainConfig(domain);
+  if (config) {
+    const settings = await getGlobalSettings();
+    const date = getCurrentPeriodDate(config, settings.resetTime);
+    await updateDomainUsage(domain, date, (u) => {
+      u.pausedSeconds += pauseElapsed;
+      return u;
+    });
+  }
+
+  // Clear pause state
+  pausedDomains.delete(domain);
+
+  // Trigger reevaluation to restart tracking
+  scheduleReevaluation();
+
+  console.log(`[TimeWarden] Pause allowance exhausted for ${domain}`);
+}
+
+/**
+ * Check if an alarm name is a pause-end alarm.
+ */
+export function isPauseEndAlarm(alarmName: string): boolean {
+  return alarmName.startsWith(PAUSE_ALARM_PREFIX);
+}
+
+/**
+ * Get pause state for a domain.
+ * Returns isPaused and remaining pause allowance seconds.
+ */
+export function getPauseState(domain: string, pausedSecondsFromStorage: number, allowanceMinutes: number): {
+  isPaused: boolean;
+  pauseRemainingSeconds: number;
+} {
+  const allowanceSeconds = allowanceMinutes * 60;
+  const pauseState = pausedDomains.get(domain);
+
+  if (pauseState) {
+    // Currently paused — compute live remaining
+    const pauseElapsed = (Date.now() - pauseState.pausedAt) / 1000;
+    const totalUsed = pauseState.previousPausedSeconds + pauseElapsed;
+    const remaining = Math.max(0, pauseState.allowanceSeconds - totalUsed);
+    return { isPaused: true, pauseRemainingSeconds: Math.floor(remaining) };
+  }
+
+  // Not paused — return remaining allowance
+  const remaining = Math.max(0, allowanceSeconds - pausedSecondsFromStorage);
+  return { isPaused: false, pauseRemainingSeconds: Math.floor(remaining) };
+}
+
+// ============================================================
+// Toolbar Badge
+// ============================================================
+
+/**
+ * Update the toolbar badge to show time remaining for the current active domain.
+ * Shows remaining time for the focused tracked domain, or clears badge if none.
+ */
+export async function updateBadge(): Promise<void> {
+  // Find the domain of the currently active tab
+  const currentDomain = tabDomainMap.get(activeTabId);
+
+  if (!currentDomain) {
+    // Active tab is not a tracked domain — clear badge
+    await browser.action.setBadgeText({ text: '' });
+    return;
+  }
+
+  // Get status for this domain
+  const status = await getStatusForDomain(currentDomain);
+
+  if (status.isBlocked) {
+    await browser.action.setBadgeText({ text: '!' });
+    await browser.action.setBadgeBackgroundColor({ color: '#EF4444' }); // red
+    return;
+  }
+
+  if (status.isPaused) {
+    await browser.action.setBadgeText({ text: '||' });
+    await browser.action.setBadgeBackgroundColor({ color: '#F59E0B' }); // amber
+    return;
+  }
+
+  const badgeText = formatBadgeText(status.timeRemainingSeconds, false);
+  const remainingPercent = status.limitMinutes > 0
+    ? (status.timeRemainingSeconds / (status.limitMinutes * 60)) * 100
+    : 100;
+
+  let color: string;
+  if (remainingPercent > 25) {
+    color = '#22C55E'; // green
+  } else if (remainingPercent > 10) {
+    color = '#F59E0B'; // yellow
+  } else {
+    color = '#EF4444'; // red
+  }
+
+  await browser.action.setBadgeText({ text: badgeText });
+  await browser.action.setBadgeBackgroundColor({ color });
 }

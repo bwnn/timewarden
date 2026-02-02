@@ -39,6 +39,10 @@ import {
   persistAllTracking,
   handleNotificationAlarm,
   handleLimitAlarm,
+  togglePause as togglePauseImpl,
+  handlePauseEndAlarm,
+  isPauseEndAlarm,
+  updateBadge,
 } from './timer-engine';
 import {
   scheduleAllResets,
@@ -105,6 +109,11 @@ async function initialize(): Promise<void> {
   // 9. Reevaluate all domains to start tracking if applicable
   scheduleReevaluation();
 
+  // 10. Initial badge update
+  updateBadge().catch((err) =>
+    console.error('[TimeWarden] Initial badge update error:', err)
+  );
+
   console.log('[TimeWarden] Background initialized');
 }
 
@@ -156,8 +165,7 @@ browser.runtime.onMessage.addListener(
         return getAllDomainStatus();
 
       case 'TOGGLE_PAUSE':
-        // Phase 5: Toggle pause for a domain
-        return Promise.resolve({ success: false, error: 'Not implemented yet' });
+        return togglePauseImpl(message.domain);
 
       case 'GET_DASHBOARD_DATA':
         return loadStorage().then((storage) => ({
@@ -243,6 +251,10 @@ browser.alarms.onAlarm.addListener((alarm) => {
     const domain = name.slice(ALARM_PREFIX.RESET.length);
     handleResetAlarm(domain, () => scheduleReevaluation()).catch((err) =>
       console.error('[TimeWarden] Reset alarm error:', err)
+    );
+  } else if (isPauseEndAlarm(name)) {
+    handlePauseEndAlarm(name).catch((err) =>
+      console.error('[TimeWarden] Pause end alarm error:', err)
     );
   } else if (isGraceEndAlarm(name)) {
     handleGraceEndAlarm(name).catch((err) =>
