@@ -260,19 +260,31 @@ export function initTabTracker(cbs: TabTrackerCallbacks): void {
  * Called on service worker startup/restart to rebuild the in-memory state.
  *
  * Must be called after refreshTrackedDomains().
+ *
+ * @param countVisits If true, fires onVisit for each unique domain found.
+ *   Should be true on startup recovery, false when re-scanning after config changes.
  */
-export async function recoverTabState(): Promise<void> {
+export async function recoverTabState(countVisits = false): Promise<void> {
   // Clear existing state
   activeTracking.clear();
   tabDomainMap.clear();
 
   // Scan all open tabs
   const allTabs = await browser.tabs.query({});
+  /** Track which domains we've already counted a visit for during this recovery */
+  const visitedDomains = new Set<string>();
   for (const tab of allTabs) {
     if (!tab.id || !tab.url) continue;
     const domain = matchDomain(tab.url, trackedDomainsList);
     if (domain) {
       registerTab(tab.id, domain, tab.audible ?? false);
+      // On startup recovery, count one visit per domain (not per tab) to avoid
+      // inflating visit counts when the user has multiple tabs open.
+      // Skip visit counting on config-change re-scans.
+      if (countVisits && !visitedDomains.has(domain)) {
+        visitedDomains.add(domain);
+        callbacks.onVisit(domain);
+      }
     }
   }
 

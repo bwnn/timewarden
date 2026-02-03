@@ -81,6 +81,17 @@ export function scheduleReevaluation(): void {
   });
 }
 
+/**
+ * Enqueue an arbitrary async operation into the serialized queue.
+ * This prevents storage read-modify-write races between operations
+ * like handleVisit and startTracking that modify the same usage entries.
+ */
+function enqueue(fn: () => Promise<void>): void {
+  reevaluateQueue = reevaluateQueue.then(fn).catch((err) => {
+    console.error('[TimeWarden] Enqueued operation error:', err);
+  });
+}
+
 // ============================================================
 // Central State Machine
 // ============================================================
@@ -240,10 +251,22 @@ async function stopTracking(domain: string): Promise<void> {
 // ============================================================
 
 /**
- * Increment the visit count for a domain.
+ * Schedule a visit count increment for a domain.
+ * Enqueued into the serialized reevaluation queue to prevent
+ * storage read-modify-write races with startTracking (which also
+ * modifies the same DomainUsage entry via getOrCreateDomainUsage).
+ *
  * Called by tab-tracker when a new navigation to a tracked domain is detected.
  */
-export async function handleVisit(domain: string): Promise<void> {
+export function handleVisit(domain: string): void {
+  enqueue(() => handleVisitImpl(domain));
+}
+
+/**
+ * Actual visit count increment logic.
+ * Must run inside the serialized queue.
+ */
+async function handleVisitImpl(domain: string): Promise<void> {
   const config = await getDomainConfig(domain);
   if (!config || !config.enabled) return;
 
@@ -512,6 +535,24 @@ export async function persistAllTracking(): Promise<void> {
 }
 
 /**
+ * Schedule a flush of active tracking data into the serialized queue.
+ *
+ * Must be serialized because flushActiveTrackingImpl modifies tracking.startedAt
+ * — running it concurrently with startTracking/stopTracking would cause races.
+ *
+ * Returns a Promise that resolves when the flush completes (so the caller
+ * can chain updateBadge after).
+ */
+export function flushActiveTracking(): Promise<void> {
+  return new Promise<void>((resolve) => {
+    enqueue(async () => {
+      await flushActiveTrackingImpl();
+      resolve();
+    });
+  });
+}
+
+/**
  * Flush active tracking data to storage AND reset startedAt timestamps.
  *
  * Unlike persistAllTracking (which doesn't modify in-memory state),
@@ -519,10 +560,9 @@ export async function persistAllTracking(): Promise<void> {
  * persisting. This prevents double-counting and ensures that
  * storage.timeSpentSeconds stays in sync with actual elapsed time.
  *
- * Called periodically (every 30 seconds) via the badge-refresh alarm
- * so that storage always reflects recent usage — not just completed sessions.
+ * Must run inside the serialized queue to avoid races with start/stop.
  */
-export async function flushActiveTracking(): Promise<void> {
+async function flushActiveTrackingImpl(): Promise<void> {
   const now = Date.now();
 
   for (const [domain, tracking] of activeTracking) {

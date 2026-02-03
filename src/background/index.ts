@@ -88,10 +88,9 @@ async function initialize(): Promise<void> {
       initTabTracker({
         onStateChange: () => scheduleReevaluation(),
         onVisit: (domain) => {
-          // Fire-and-forget — visit counting is best-effort
-          handleVisit(domain).catch((err) =>
-            console.error('[TimeWarden] Visit count error:', err)
-          );
+          // Enqueued into the serialized reevaluation queue —
+          // no .catch needed since the queue handles errors internally
+          handleVisit(domain);
         },
       });
 
@@ -105,8 +104,8 @@ async function initialize(): Promise<void> {
     // 4. Refresh the tracked domains cache
     await refreshTrackedDomains();
 
-    // 5. Recover tab state from all open tabs
-    await recoverTabState();
+    // 5. Recover tab state from all open tabs (count visits on startup)
+    await recoverTabState(true);
 
     // 6. Check for missed resets (browser may have been closed during a reset)
     await checkMissedResets();
