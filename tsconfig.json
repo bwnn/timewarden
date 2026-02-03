@@ -16,7 +16,7 @@
     "paths": {
       "$lib/*": ["./src/lib/*"]
     },
-    "types": ["svelte"]
+    "types": ["svelte", "node"]
   },
   "include": ["src/**/*.ts", "src/**/*.svelte"],
   "exclude": ["node_modules", "dist"]
