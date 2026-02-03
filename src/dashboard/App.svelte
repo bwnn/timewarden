@@ -33,6 +33,9 @@
   let range = $state<'7d' | '14d' | '30d'>('7d');
   let cleanupTheme: (() => void) | null = null;
 
+  /** Polling interval for live data refresh */
+  let pollInterval: ReturnType<typeof setInterval> | null = null;
+
   // Raw data from background
   let allUsage = $state<DailyUsage[]>([]);
 
@@ -93,6 +96,21 @@
     }
   }
 
+  /**
+   * Silent refresh — re-fetches data without resetting the loading state.
+   * Used by the polling interval so the UI doesn't flash loading indicators.
+   */
+  async function silentRefresh() {
+    // Only refresh while the page is visible to avoid wasting resources
+    if (document.visibilityState !== 'visible') return;
+    try {
+      const data = await getDashboardData(range);
+      allUsage = data.usage;
+    } catch {
+      // Silently ignore — next poll will retry
+    }
+  }
+
   onMount(async () => {
     // Initialize theme
     try {
@@ -102,10 +120,18 @@
       cleanupTheme = initTheme('system');
     }
 
-    loadData();
+    await loadData();
+
+    // Poll every 5 seconds for live data updates (especially TodayOverview
+    // which shows time remaining that should count down in near-real-time)
+    pollInterval = setInterval(silentRefresh, 5000);
   });
 
   onDestroy(() => {
+    if (pollInterval) {
+      clearInterval(pollInterval);
+      pollInterval = null;
+    }
     if (cleanupTheme) cleanupTheme();
   });
 

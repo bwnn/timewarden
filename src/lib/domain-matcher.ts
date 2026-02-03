@@ -1,9 +1,12 @@
 /**
  * Domain matching utilities.
  *
- * Key principle: Exact hostname matching only.
- * youtube.com !== music.youtube.com
- * www.youtube.com !== youtube.com
+ * Matching rules:
+ * - A configured domain WITHOUT "www." also matches its "www." variant:
+ *     "youtube.com" matches both "youtube.com" AND "www.youtube.com"
+ * - A configured domain WITH "www." matches only that exact hostname:
+ *     "www.youtube.com" matches only "www.youtube.com"
+ * - No general subdomain inference — "music.youtube.com" requires its own config.
  */
 
 /**
@@ -24,14 +27,26 @@ export function extractHostname(url: string): string | null {
 
 /**
  * Match a URL against a list of tracked domains.
- * Returns the matching domain string or null.
+ * Returns the matching tracked domain string or null.
  *
- * Uses exact hostname matching — no subdomain inference.
+ * A non-www configured domain (e.g. "youtube.com") also matches "www.youtube.com".
+ * A www-prefixed configured domain (e.g. "www.example.com") matches only itself.
  */
 export function matchDomain(url: string, trackedDomains: string[]): string | null {
   const hostname = extractHostname(url);
   if (!hostname) return null;
-  return trackedDomains.includes(hostname) ? hostname : null;
+
+  for (const domain of trackedDomains) {
+    // Exact match always works
+    if (hostname === domain) return domain;
+
+    // Non-www config also matches the www. variant of the hostname
+    if (!domain.startsWith('www.') && hostname === 'www.' + domain) {
+      return domain;
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -65,9 +80,13 @@ export function isValidDomain(domain: string): boolean {
  * - Lowercase
  * - Strip trailing dots
  *
- * Returns the normalized domain and whether www. was stripped.
+ * The www. prefix is preserved so users can choose matching behavior:
+ * - "youtube.com" → matches youtube.com AND www.youtube.com
+ * - "www.youtube.com" → matches www.youtube.com only
+ *
+ * Returns the normalized domain and whether it starts with www.
  */
-export function normalizeDomain(input: string): { domain: string; strippedWww: boolean } {
+export function normalizeDomain(input: string): { domain: string; hasWww: boolean } {
   let domain = input.trim().toLowerCase();
 
   // Remove trailing dot (DNS root)
@@ -75,12 +94,7 @@ export function normalizeDomain(input: string): { domain: string; strippedWww: b
     domain = domain.slice(0, -1);
   }
 
-  // Check for www. prefix
-  let strippedWww = false;
-  if (domain.startsWith('www.')) {
-    domain = domain.slice(4);
-    strippedWww = true;
-  }
+  const hasWww = domain.startsWith('www.');
 
-  return { domain, strippedWww };
+  return { domain, hasWww };
 }

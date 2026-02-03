@@ -95,11 +95,13 @@
       const statuses = await getAllStatus();
       allStatuses = statuses;
 
-      // Match current tab against tracked domains
+      // Match current tab against tracked domains using the same rules as
+      // matchDomain(): exact match, plus www. variant for non-www configs
       if (hostname) {
-        // Check exact match first, then check if hostname is a subdomain
         const match = statuses.find((s) => {
-          return hostname === s.domain || hostname.endsWith('.' + s.domain);
+          if (hostname === s.domain) return true;
+          if (!s.domain.startsWith('www.') && hostname === 'www.' + s.domain) return true;
+          return false;
         });
         if (match) {
           currentDomain = match.domain;

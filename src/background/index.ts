@@ -33,6 +33,7 @@ import {
   initTabTracker,
   recoverTabState,
   refreshTrackedDomains,
+  activeTracking,
 } from './tab-tracker';
 import {
   scheduleReevaluation,
@@ -40,6 +41,7 @@ import {
   getStatusForDomain,
   getAllDomainStatus,
   persistAllTracking,
+  flushActiveTracking,
   handleNotificationAlarm,
   handleLimitAlarm,
   togglePause as togglePauseImpl,
@@ -172,8 +174,12 @@ browser.runtime.onMessage.addListener(
       case 'SAVE_DOMAIN_CONFIG':
         return safeHandler(async () => {
           await saveDomainConfig(message.config);
-          // Domain config changed — refresh cache and reschedule
+          // Domain config changed — refresh cache, scan existing tabs, and reschedule
           await refreshTrackedDomains();
+          // Re-scan open tabs so that existing tabs matching the new/updated domain
+          // are registered in activeTracking (without this, a tab already open to
+          // the domain would not be tracked until the user navigates away and back)
+          await recoverTabState();
           await scheduleNextReset(message.config.domain);
           scheduleReevaluation();
           return { success: true };
@@ -182,8 +188,9 @@ browser.runtime.onMessage.addListener(
       case 'REMOVE_DOMAIN':
         return safeHandler(async () => {
           await removeDomainConfig(message.domain);
-          // Domain removed — refresh cache, clear its reset alarm
+          // Domain removed — refresh cache, re-scan tabs, clear its reset alarm
           await refreshTrackedDomains();
+          await recoverTabState();
           await browser.alarms.clear(`${ALARM_PREFIX.RESET}${message.domain}`);
           scheduleReevaluation();
           return { success: true };
@@ -199,13 +206,37 @@ browser.runtime.onMessage.addListener(
         return safeHandler(() => togglePauseImpl(message.domain));
 
       case 'GET_DASHBOARD_DATA':
-        return safeHandler(() =>
-          loadStorage().then((storage) => ({
+        return safeHandler(async () => {
+          const storage = await loadStorage();
+
+          // Augment today's usage data with live elapsed from active tracking
+          // sessions. Without this, timeSpentSeconds only reflects completed
+          // sessions and the dashboard would show stale remaining time.
+          const now = Date.now();
+          for (const [domain, tracking] of activeTracking) {
+            if (!tracking.startedAt) continue;
+            const liveElapsed = (now - tracking.startedAt) / 1000;
+            if (liveElapsed <= 0) continue;
+
+            // Find the domain's config to determine the period date
+            const config = storage.domains.find((d) => d.domain === domain);
+            if (!config) continue;
+            const date = getCurrentPeriodDate(config, storage.settings.resetTime);
+
+            // Find the matching daily/domain usage entry and add live elapsed
+            const daily = storage.usage.find((u) => u.date === date);
+            const domainUsage = daily?.domains.find((d) => d.domain === domain);
+            if (domainUsage) {
+              domainUsage.timeSpentSeconds += liveElapsed;
+            }
+          }
+
+          return {
             usage: storage.usage,
             domains: storage.domains,
             settings: storage.settings,
-          }))
-        );
+          };
+        });
 
       case 'GET_BLOCKED_STATUS':
         return safeHandler(() => getBlockedStatusForDomain(message.domain));
@@ -281,9 +312,13 @@ browser.alarms.onAlarm.addListener((alarm) => {
   const { name } = alarm;
 
   if (name === BADGE_REFRESH_ALARM) {
-    updateBadge().catch((err) =>
-      console.error('[TimeWarden] Badge refresh alarm error:', err)
-    );
+    // Flush active tracking data to storage so timeSpentSeconds stays current,
+    // then update the badge text
+    flushActiveTracking()
+      .then(() => updateBadge())
+      .catch((err) =>
+        console.error('[TimeWarden] Badge/flush alarm error:', err)
+      );
   } else if (name.startsWith(ALARM_PREFIX.RESET)) {
     const domain = name.slice(ALARM_PREFIX.RESET.length);
     handleResetAlarm(domain, () => scheduleReevaluation()).catch((err) =>

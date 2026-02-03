@@ -21,15 +21,17 @@
   let minutes = $state(DEFAULT_DAILY_LIMIT_MINUTES % 60);
   let error = $state('');
 
-  // Live www. detection
-  let wwwWarning = $derived.by(() => {
+  // Live matching-behavior hint
+  let domainHint = $derived.by(() => {
     const trimmed = domainInput.trim();
     if (!trimmed) return '';
-    const { strippedWww, domain } = normalizeDomain(trimmed);
-    if (strippedWww) {
-      return `"www." will be removed. Will track "${domain}" (www.${domain} is treated as a different site).`;
+    const { hasWww, domain } = normalizeDomain(trimmed);
+    if (!isValidDomain(domain)) return '';
+    if (hasWww) {
+      const bare = domain.slice(4);
+      return `Will match ${domain} only. Use "${bare}" to match both ${bare} and ${domain}.`;
     }
-    return '';
+    return `Will match both ${domain} and www.${domain}.`;
   });
 
   function handleSubmit() {
@@ -92,14 +94,14 @@
         type="text"
         bind:value={domainInput}
         placeholder="youtube.com"
-        aria-describedby={wwwWarning ? 'www-warning' : undefined}
+        aria-describedby={domainHint ? 'domain-hint' : undefined}
         aria-invalid={error ? 'true' : undefined}
         class="block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
                placeholder:text-gray-400 dark:placeholder:text-gray-500
                focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
       />
-      {#if wwwWarning}
-        <p id="www-warning" class="mt-1 text-xs text-amber-600 dark:text-amber-400">{wwwWarning}</p>
+      {#if domainHint}
+        <p id="domain-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400">{domainHint}</p>
       {/if}
     </div>
 

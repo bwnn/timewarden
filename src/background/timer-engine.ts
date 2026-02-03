@@ -511,6 +511,49 @@ export async function persistAllTracking(): Promise<void> {
   }
 }
 
+/**
+ * Flush active tracking data to storage AND reset startedAt timestamps.
+ *
+ * Unlike persistAllTracking (which doesn't modify in-memory state),
+ * this function resets each tracking.startedAt to Date.now() after
+ * persisting. This prevents double-counting and ensures that
+ * storage.timeSpentSeconds stays in sync with actual elapsed time.
+ *
+ * Called periodically (every 30 seconds) via the badge-refresh alarm
+ * so that storage always reflects recent usage — not just completed sessions.
+ */
+export async function flushActiveTracking(): Promise<void> {
+  const now = Date.now();
+
+  for (const [domain, tracking] of activeTracking) {
+    if (!tracking.startedAt) continue;
+
+    const elapsed = (now - tracking.startedAt) / 1000;
+    if (elapsed <= 0) continue;
+
+    const config = await getDomainConfig(domain);
+    if (!config) continue;
+
+    const settings = await getGlobalSettings();
+    const date = getCurrentPeriodDate(config, settings.resetTime);
+
+    await updateDomainUsage(domain, date, (u) => {
+      u.timeSpentSeconds += elapsed;
+
+      // Update the last open session's duration (it's still active)
+      const lastSession = u.sessions[u.sessions.length - 1];
+      if (lastSession && lastSession.endTime === null) {
+        lastSession.durationSeconds += elapsed;
+      }
+
+      return u;
+    });
+
+    // Reset startedAt so the next flush/stop doesn't double-count
+    tracking.startedAt = now;
+  }
+}
+
 // ============================================================
 // Pause Functionality
 // ============================================================
