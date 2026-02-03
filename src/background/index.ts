@@ -331,7 +331,7 @@ browser.alarms.onAlarm.addListener((alarm) => {
     handleGraceEndAlarm(name).catch((err) =>
       console.error('[TimeWarden] Grace end alarm error:', err)
     );
-  } else if (name.startsWith(ALARM_PREFIX.NOTIFY_TEN_PERCENT)) {
+  } else if (name.startsWith(ALARM_PREFIX.NOTIFY_RULE)) {
     handleNotificationAlarm(name).catch((err) =>
       console.error('[TimeWarden] Notification alarm error:', err)
     );

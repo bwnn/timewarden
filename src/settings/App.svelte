@@ -28,6 +28,7 @@
     notificationsEnabled: true,
     gracePeriodSeconds: 60,
     theme: 'system',
+    notificationRules: [],
   });
   let usageData = $state<DailyUsage[]>([]);
   let loading = $state(true);

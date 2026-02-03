@@ -1,4 +1,26 @@
 // ============================================================
+// Notification Rules
+// ============================================================
+
+/** A single notification rule */
+export interface NotificationRule {
+  /** Unique identifier (e.g., 'default-10pct' or generated ID) */
+  id: string;
+  /** Whether this rule is active */
+  enabled: boolean;
+  /** Trigger type */
+  type: 'percentage' | 'time';
+  /** For 'percentage': fires when this % of limit has been USED (0-100) */
+  percentageUsed?: number;
+  /** For 'time': fires when this many seconds REMAIN */
+  timeRemainingSeconds?: number;
+  /** Custom notification title (optional — defaults generated if omitted) */
+  title?: string;
+  /** Custom notification message (optional — defaults generated if omitted) */
+  message?: string;
+}
+
+// ============================================================
 // Domain Configuration
 // ============================================================
 
@@ -29,6 +51,10 @@ export interface DomainConfig {
   resetTime: string | null;
   /** Per-day config overrides */
   dayOverrides: Partial<Record<DayOfWeek, DayOverride>>;
+  /** Whether to use global notification rules (true) or domain-specific (false) */
+  useGlobalNotifications: boolean;
+  /** Per-domain notification rules (only used when useGlobalNotifications is false) */
+  notificationRules?: NotificationRule[];
 }
 
 // ============================================================
@@ -61,11 +87,8 @@ export interface DomainUsage {
   limitSeconds: number;
   /** IMMUTABLE snapshot of the reset time for this period */
   resetTime: string;
-  /** Which threshold notifications have fired */
-  notifications: {
-    /** Fired when 90% of time used */
-    tenPercent: boolean;
-  };
+  /** Which notification rules have fired this period (maps rule ID -> fired) */
+  notifications: Record<string, boolean>;
   /** Whether this domain is currently blocked */
   blocked: boolean;
   /** ISO 8601 timestamp when blocking occurred (null if not blocked) */
@@ -87,12 +110,14 @@ export interface DailyUsage {
 export interface GlobalSettings {
   /** Default reset time "HH:MM" (default: "00:00") */
   resetTime: string;
-  /** Whether browser notifications are enabled */
+  /** Whether browser notifications are enabled (master toggle — gates ALL notifications) */
   notificationsEnabled: boolean;
   /** Grace period before blocking in seconds (default: 60) */
   gracePeriodSeconds: number;
   /** UI theme preference */
   theme: 'light' | 'dark' | 'system';
+  /** Global default notification rules */
+  notificationRules: NotificationRule[];
 }
 
 // ============================================================

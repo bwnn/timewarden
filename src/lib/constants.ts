@@ -1,7 +1,17 @@
-import type { GlobalSettings, StorageSchema } from './types';
+import type { GlobalSettings, NotificationRule, StorageSchema } from './types';
 
 /** Maximum number of daily usage entries to keep */
 export const MAX_USAGE_DAYS = 30;
+
+/** Default notification rules for new installs and global settings */
+export const DEFAULT_NOTIFICATION_RULES: NotificationRule[] = [
+  {
+    id: 'default-10pct',
+    enabled: true,
+    type: 'percentage',
+    percentageUsed: 90, // Fires when 90% used = 10% remaining
+  },
+];
 
 /** Default global settings */
 export const DEFAULT_SETTINGS: GlobalSettings = {
@@ -9,6 +19,7 @@ export const DEFAULT_SETTINGS: GlobalSettings = {
   notificationsEnabled: true,
   gracePeriodSeconds: 60,
   theme: 'system',
+  notificationRules: DEFAULT_NOTIFICATION_RULES,
 };
 
 /** Default storage state for a fresh install */
@@ -35,13 +46,11 @@ export const IDLE_THRESHOLD_SECONDS = 60;
 
 /** Alarm name prefixes */
 export const ALARM_PREFIX = {
-  NOTIFY_TEN_PERCENT: 'notify-10pct-',
+  /** Flexible notification rule alarm: "notify-rule-{ruleId}::{domain}" */
+  NOTIFY_RULE: 'notify-rule-',
   LIMIT_REACHED: 'limit-',
   RESET: 'reset-',
 } as const;
 
-/** Notification thresholds */
-export const NOTIFICATION_THRESHOLDS = {
-  /** Percentage of limit used before "10% remaining" notification */
-  TEN_PERCENT_USED: 0.9,
-} as const;
+/** Separator between rule ID and domain in notification alarm names */
+export const ALARM_RULE_SEPARATOR = '::';

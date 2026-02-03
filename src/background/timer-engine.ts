@@ -14,9 +14,9 @@
  * directly — index.ts wires the callbacks.
  */
 
-import type { StatusResponse, DayOfWeek } from '$lib/types';
-import { ALARM_PREFIX, NOTIFICATION_THRESHOLDS } from '$lib/constants';
-import { getCurrentPeriodDate, getEffectiveLimit } from '$lib/utils';
+import type { StatusResponse, DayOfWeek, NotificationRule } from '$lib/types';
+import { ALARM_PREFIX, ALARM_RULE_SEPARATOR } from '$lib/constants';
+import { getCurrentPeriodDate, getEffectiveLimit, formatBadgeText } from '$lib/utils';
 import {
   activeTracking,
   tabDomainMap,
@@ -33,9 +33,8 @@ import {
   getDomainUsage,
   getDomainConfigs,
 } from './storage-manager';
-import { notifyTenPercentRemaining } from './notification-manager';
+import { notifyCustomRule } from './notification-manager';
 import { startGracePeriod, isDomainInGracePeriod, getGraceRemainingSeconds } from './block-manager';
-import { formatBadgeText } from '$lib/utils';
 
 // ============================================================
 // Pause State (runtime-only — does NOT persist across restart)
@@ -284,27 +283,55 @@ async function handleVisitImpl(domain: string): Promise<void> {
 // ============================================================
 
 /**
- * Schedule alarms for notification thresholds and limit enforcement.
+ * Get the effective notification rules for a domain.
+ * Returns domain-specific rules if configured, otherwise global defaults.
+ */
+async function getEffectiveNotificationRules(domain: string): Promise<NotificationRule[]> {
+  const config = await getDomainConfig(domain);
+  const settings = await getGlobalSettings();
+
+  if (config && !config.useGlobalNotifications && config.notificationRules) {
+    return config.notificationRules;
+  }
+  return settings.notificationRules;
+}
+
+/**
+ * Schedule alarms for notification rules and limit enforcement.
  * Called when tracking starts for a domain.
  */
 async function scheduleTrackingAlarms(
   domain: string,
   currentTimeSpent: number,
   limitSeconds: number,
-  notifications: { tenPercent: boolean }
+  firedNotifications: Record<string, boolean>
 ): Promise<void> {
   const now = Date.now();
+  const rules = await getEffectiveNotificationRules(domain);
 
-  // 10% remaining notification (90% used threshold)
-  const tenPctThreshold = limitSeconds * NOTIFICATION_THRESHOLDS.TEN_PERCENT_USED;
-  if (currentTimeSpent < tenPctThreshold && !notifications.tenPercent) {
-    const delaySeconds = tenPctThreshold - currentTimeSpent;
-    browser.alarms.create(`${ALARM_PREFIX.NOTIFY_TEN_PERCENT}${domain}`, {
-      when: now + delaySeconds * 1000,
-    });
+  for (const rule of rules) {
+    if (!rule.enabled) continue;
+    if (firedNotifications[rule.id]) continue; // Already fired this period
+
+    let thresholdSeconds: number;
+    if (rule.type === 'percentage' && rule.percentageUsed != null) {
+      thresholdSeconds = (rule.percentageUsed / 100) * limitSeconds;
+    } else if (rule.type === 'time' && rule.timeRemainingSeconds != null) {
+      thresholdSeconds = limitSeconds - rule.timeRemainingSeconds;
+    } else {
+      continue; // Invalid rule
+    }
+
+    if (currentTimeSpent < thresholdSeconds) {
+      const delaySeconds = thresholdSeconds - currentTimeSpent;
+      browser.alarms.create(
+        `${ALARM_PREFIX.NOTIFY_RULE}${rule.id}${ALARM_RULE_SEPARATOR}${domain}`,
+        { when: now + delaySeconds * 1000 }
+      );
+    }
   }
 
-  // Limit reached
+  // Limit reached alarm (unchanged)
   const remaining = limitSeconds - currentTimeSpent;
   if (remaining > 0) {
     browser.alarms.create(`${ALARM_PREFIX.LIMIT_REACHED}${domain}`, {
@@ -314,14 +341,21 @@ async function scheduleTrackingAlarms(
 }
 
 /**
- * Clear all threshold alarms for a domain.
+ * Clear all notification rule alarms and the limit-reached alarm for a domain.
  * Called when tracking stops.
  */
 async function clearTrackingAlarms(domain: string): Promise<void> {
-  await Promise.all([
-    browser.alarms.clear(`${ALARM_PREFIX.NOTIFY_TEN_PERCENT}${domain}`),
-    browser.alarms.clear(`${ALARM_PREFIX.LIMIT_REACHED}${domain}`),
-  ]);
+  const allAlarms = await browser.alarms.getAll();
+  const domainSuffix = `${ALARM_RULE_SEPARATOR}${domain}`;
+
+  const toClear = allAlarms
+    .filter(a =>
+      (a.name.startsWith(ALARM_PREFIX.NOTIFY_RULE) && a.name.endsWith(domainSuffix)) ||
+      a.name === `${ALARM_PREFIX.LIMIT_REACHED}${domain}`
+    )
+    .map(a => browser.alarms.clear(a.name));
+
+  await Promise.all(toClear);
 }
 
 // ============================================================
@@ -329,13 +363,32 @@ async function clearTrackingAlarms(domain: string): Promise<void> {
 // ============================================================
 
 /**
- * Handle a notification threshold alarm (10% remaining).
+ * Parse a notification rule alarm name into its ruleId and domain components.
+ * Format: "notify-rule-{ruleId}::{domain}"
+ */
+function parseNotifyAlarmName(alarmName: string): { ruleId: string; domain: string } | null {
+  if (!alarmName.startsWith(ALARM_PREFIX.NOTIFY_RULE)) return null;
+
+  const suffix = alarmName.slice(ALARM_PREFIX.NOTIFY_RULE.length);
+  const separatorIndex = suffix.indexOf(ALARM_RULE_SEPARATOR);
+  if (separatorIndex < 0) return null;
+
+  const ruleId = suffix.slice(0, separatorIndex);
+  const domain = suffix.slice(separatorIndex + ALARM_RULE_SEPARATOR.length);
+
+  if (!ruleId || !domain) return null;
+  return { ruleId, domain };
+}
+
+/**
+ * Handle a notification rule alarm.
  * Dispatches browser notification and marks it as fired in storage.
  */
 export async function handleNotificationAlarm(alarmName: string): Promise<void> {
-  if (!alarmName.startsWith(ALARM_PREFIX.NOTIFY_TEN_PERCENT)) return;
+  const parsed = parseNotifyAlarmName(alarmName);
+  if (!parsed) return;
 
-  const domain = alarmName.slice(ALARM_PREFIX.NOTIFY_TEN_PERCENT.length);
+  const { ruleId, domain } = parsed;
 
   const config = await getDomainConfig(domain);
   if (!config) return;
@@ -345,12 +398,18 @@ export async function handleNotificationAlarm(alarmName: string): Promise<void> 
 
   // Mark notification as fired to prevent duplicates
   await updateDomainUsage(domain, date, (u) => {
-    u.notifications.tenPercent = true;
+    u.notifications[ruleId] = true;
     return u;
   });
 
-  await notifyTenPercentRemaining(domain);
-  console.log(`[TimeWarden] Notification alarm: tenPercent for ${domain}`);
+  // Get the rule for custom title/message
+  const rules = config.useGlobalNotifications === false && config.notificationRules
+    ? config.notificationRules
+    : settings.notificationRules;
+  const rule = rules.find(r => r.id === ruleId);
+
+  await notifyCustomRule(domain, rule);
+  console.log(`[TimeWarden] Notification alarm: rule ${ruleId} for ${domain}`);
 }
 
 /**

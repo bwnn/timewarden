@@ -199,9 +199,7 @@ export async function getOrCreateDomainUsage(
       pausedSeconds: 0,
       limitSeconds: effectiveLimit,
       resetTime: effectiveResetTime,
-      notifications: {
-        tenPercent: false,
-      },
+      notifications: {},
       blocked: false,
       blockedAt: null,
     };

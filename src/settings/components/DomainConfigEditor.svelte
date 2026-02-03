@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { DomainConfig, DayOfWeek, DayOverride } from '$lib/types';
+  import type { DomainConfig, DayOfWeek, DayOverride, NotificationRule } from '$lib/types';
   import { isValidDomain, normalizeDomain } from '$lib/domain-matcher';
   import { formatLimitSeconds } from '$lib/utils';
   import {
@@ -10,6 +10,7 @@
   } from '$lib/constants';
   import DayOverrideGrid from './DayOverrideGrid.svelte';
   import TimePicker from './TimePicker.svelte';
+  import NotificationRulesEditor from './NotificationRulesEditor.svelte';
 
   interface Props {
     mode: 'add' | 'edit';
@@ -41,6 +42,7 @@
     pauseAllowanceSeconds: DEFAULT_PAUSE_ALLOWANCE_SECONDS,
     resetTime: null,
     dayOverrides: {},
+    useGlobalNotifications: true,
   };
 
   function cloneConfig(c: DomainConfig): DomainConfig {
@@ -123,6 +125,25 @@
 
   function handleDayOverridesChange(overrides: Partial<Record<DayOfWeek, DayOverride>>) {
     config.dayOverrides = overrides;
+  }
+
+  function handleNotificationModeChange(useGlobal: boolean) {
+    config.useGlobalNotifications = useGlobal;
+    if (!useGlobal && !config.notificationRules) {
+      // Initialize with a copy of a sensible default
+      config.notificationRules = [
+        {
+          id: 'default-10pct',
+          enabled: true,
+          type: 'percentage' as const,
+          percentageUsed: 90,
+        },
+      ];
+    }
+  }
+
+  function handleNotificationRulesChange(rules: NotificationRule[]) {
+    config.notificationRules = rules;
   }
 
   // -- Handlers: Actions ---------------------------------------------
@@ -376,6 +397,41 @@
             onchange={handleDayOverridesChange}
           />
         </div>
+
+        <!-- Notification Rules -->
+        <fieldset>
+          <legend class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Notification Rules</legend>
+          <div class="space-y-2">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="notification-mode-{mode}"
+                checked={config.useGlobalNotifications}
+                onchange={() => handleNotificationModeChange(true)}
+                class="text-blue-600 focus:ring-blue-500"
+              />
+              <span class="text-sm text-gray-700 dark:text-gray-300">Use global defaults</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="notification-mode-{mode}"
+                checked={!config.useGlobalNotifications}
+                onchange={() => handleNotificationModeChange(false)}
+                class="text-blue-600 focus:ring-blue-500"
+              />
+              <span class="text-sm text-gray-700 dark:text-gray-300">Custom rules for this domain</span>
+            </label>
+            {#if !config.useGlobalNotifications && config.notificationRules}
+              <div class="ml-6 mt-2">
+                <NotificationRulesEditor
+                  rules={config.notificationRules}
+                  onchange={handleNotificationRulesChange}
+                />
+              </div>
+            {/if}
+          </div>
+        </fieldset>
       </div>
     {/if}
 

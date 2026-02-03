@@ -1,6 +1,7 @@
 <script lang="ts">
-  import type { GlobalSettings } from '$lib/types';
+  import type { GlobalSettings, NotificationRule } from '$lib/types';
   import TimePicker from './TimePicker.svelte';
+  import NotificationRulesEditor from './NotificationRulesEditor.svelte';
 
   interface Props {
     settings: GlobalSettings;
@@ -13,6 +14,7 @@
   let resetTime = $state('00:00');
   let notificationsEnabled = $state(true);
   let theme = $state<GlobalSettings['theme']>('system');
+  let notificationRules = $state<NotificationRule[]>([]);
   let saving = $state(false);
   let saved = $state(false);
 
@@ -21,12 +23,14 @@
     resetTime = settings.resetTime;
     notificationsEnabled = settings.notificationsEnabled;
     theme = settings.theme;
+    notificationRules = settings.notificationRules ? [...settings.notificationRules] : [];
   });
 
   let isDirty = $derived(
     resetTime !== settings.resetTime ||
     notificationsEnabled !== settings.notificationsEnabled ||
-    theme !== settings.theme
+    theme !== settings.theme ||
+    JSON.stringify(notificationRules) !== JSON.stringify(settings.notificationRules ?? [])
   );
 
   async function save() {
@@ -36,6 +40,7 @@
       resetTime,
       notificationsEnabled,
       theme,
+      notificationRules,
     });
     saving = false;
     saved = true;
@@ -46,6 +51,11 @@
     resetTime = settings.resetTime;
     notificationsEnabled = settings.notificationsEnabled;
     theme = settings.theme;
+    notificationRules = settings.notificationRules ? [...settings.notificationRules] : [];
+  }
+
+  function handleRulesChange(rules: NotificationRule[]) {
+    notificationRules = rules;
   }
 </script>
 
@@ -69,27 +79,39 @@
     </div>
 
     <!-- Notifications -->
-    <div class="flex items-center justify-between">
-      <div>
-        <label for="notifications-toggle" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Notifications
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <label for="notifications-toggle" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Notifications
+          </label>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Get notified when time limits are approaching</p>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input
+            id="notifications-toggle"
+            type="checkbox"
+            bind:checked={notificationsEnabled}
+            class="sr-only peer"
+            aria-label="Enable notifications"
+          />
+          <div class="w-9 h-5 bg-gray-200 dark:bg-gray-600 rounded-full peer peer-checked:bg-blue-600
+                      after:content-[''] after:absolute after:top-0.5 after:start-0.5
+                      after:bg-white after:rounded-full after:h-4 after:w-4
+                      after:transition-all peer-checked:after:translate-x-full
+                      peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800"></div>
         </label>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Get notified when time limits are approaching</p>
       </div>
-      <label class="relative inline-flex items-center cursor-pointer">
-        <input
-          id="notifications-toggle"
-          type="checkbox"
-          bind:checked={notificationsEnabled}
-          class="sr-only peer"
-          aria-label="Enable notifications"
-        />
-        <div class="w-9 h-5 bg-gray-200 dark:bg-gray-600 rounded-full peer peer-checked:bg-blue-600
-                    after:content-[''] after:absolute after:top-0.5 after:start-0.5
-                    after:bg-white after:rounded-full after:h-4 after:w-4
-                    after:transition-all peer-checked:after:translate-x-full
-                    peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800"></div>
-      </label>
+
+      {#if notificationsEnabled}
+        <div class="pl-2 border-l-2 border-gray-200 dark:border-gray-600">
+          <span class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Default Notification Rules</span>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            These rules apply to all domains unless overridden with per-domain rules.
+          </p>
+          <NotificationRulesEditor rules={notificationRules} onchange={handleRulesChange} />
+        </div>
+      {/if}
     </div>
 
     <!-- Theme -->

@@ -2,7 +2,7 @@
  * Notification Manager — dispatches browser notifications for time limit warnings.
  *
  * Responsibilities:
- * - Dispatch "10% remaining" notification
+ * - Dispatch configurable notification rule alerts
  * - Dispatch "grace period starting" notification when limit is reached
  * - Track notification clicks to open the popup
  * - Respect the user's notificationsEnabled setting
@@ -10,7 +10,9 @@
  * Called by timer-engine.ts when alarm handlers fire.
  */
 
+import type { NotificationRule } from '$lib/types';
 import { getGlobalSettings } from "./storage-manager";
+import { formatTimeRemaining } from '$lib/utils';
 
 // ============================================================
 // Notification IDs (used for click handling)
@@ -23,18 +25,40 @@ const NOTIFICATION_ID_PREFIX = "timewarden-";
 // ============================================================
 
 /**
- * Send a "10% remaining" notification for a domain.
+ * Send a notification for a configurable notification rule.
+ * Generates default title/message if the rule doesn't specify custom ones.
  */
-export async function notifyTenPercentRemaining(domain: string): Promise<void> {
+export async function notifyCustomRule(
+	domain: string,
+	rule?: NotificationRule
+): Promise<void> {
 	const settings = await getGlobalSettings();
 	if (!settings.notificationsEnabled) return;
 
+	const title = rule?.title || 'TimeWarden — Running Low';
+	let message: string;
+
+	if (rule) {
+		if (rule.message) {
+			message = rule.message.replace('{domain}', domain);
+		} else if (rule.type === 'percentage' && rule.percentageUsed != null) {
+			const remaining = 100 - rule.percentageUsed;
+			message = `${domain}: ${remaining}% of your daily limit remaining.`;
+		} else if (rule.type === 'time' && rule.timeRemainingSeconds != null) {
+			const formatted = formatTimeRemaining(rule.timeRemainingSeconds);
+			message = `${domain}: ${formatted} remaining.`;
+		} else {
+			message = `${domain}: approaching your daily limit.`;
+		}
+	} else {
+		message = `${domain}: approaching your daily limit.`;
+	}
+
 	try {
-		await browser.notifications.create(`${NOTIFICATION_ID_PREFIX}10pct-${domain}`, {
-			type: "basic",
-			title: "TimeWarden — Running Low",
-			message: `${domain}: 10% of your daily limit remaining.`,
-		});
+		await browser.notifications.create(
+			`${NOTIFICATION_ID_PREFIX}rule-${rule?.id ?? 'unknown'}-${domain}`,
+			{ type: "basic", title, message }
+		);
 	} catch (err) {
 		console.error("[TimeWarden] Failed to create notification:", err);
 	}
