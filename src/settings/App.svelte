@@ -272,6 +272,11 @@
     }
   }
 
+  function handleInlineDelete(domain: string) {
+    selectedDomain = domain;
+    showDeleteConfirm = true;
+  }
+
   async function handleDeleteDomain() {
     if (!selectedDomain) return;
     try {
@@ -357,6 +362,7 @@
                   isSelected={selectedDomain === config.domain}
                   ontoggle={handleToggleDomain}
                   onselect={handleSelectDomain}
+                  ondelete={handleInlineDelete}
                 />
               {/each}
             </div>
