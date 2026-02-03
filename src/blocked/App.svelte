@@ -89,8 +89,16 @@
   // Actions
   // ============================================================
 
-  function closeTab(): void {
-    window.close();
+  async function closeTab(): Promise<void> {
+    try {
+      const tab = await browser.tabs.getCurrent();
+      if (tab.id != null) {
+        await browser.tabs.remove(tab.id);
+      }
+    } catch {
+      // Fallback: window.close() works if the tab was opened by script
+      window.close();
+    }
   }
 
   function openDashboard(): void {

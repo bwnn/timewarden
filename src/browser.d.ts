@@ -70,6 +70,8 @@ declare namespace browser {
     function create(createProperties: Record<string, unknown>): Promise<Tab>;
     function update(tabId: number, updateProperties: Record<string, unknown>): Promise<Tab>;
     function get(tabId: number): Promise<Tab>;
+    function getCurrent(): Promise<Tab>;
+    function remove(tabIds: number | number[]): Promise<void>;
     function sendMessage(tabId: number, message: unknown): Promise<unknown>;
 
     const onActivated: {
@@ -128,7 +130,7 @@ declare namespace browser {
   namespace notifications {
     interface CreateOptions {
       type: 'basic';
-      iconUrl: string;
+      iconUrl?: string;
       title: string;
       message: string;
     }
@@ -150,16 +152,6 @@ declare namespace browser {
     const onStateChanged: {
       addListener(callback: (newState: IdleState) => void): void;
     };
-  }
-
-  namespace scripting {
-    interface ScriptInjection {
-      target: { tabId: number };
-      files?: string[];
-      func?: () => void;
-    }
-
-    function executeScript(injection: ScriptInjection): Promise<unknown[]>;
   }
 
   namespace action {

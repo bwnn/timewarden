@@ -69,17 +69,12 @@ export default defineConfig({
         dashboard: resolve(__dirname, 'src/entrypoints/dashboard.html'),
         blocked: resolve(__dirname, 'src/entrypoints/blocked.html'),
         background: resolve(__dirname, 'src/background/index.ts'),
-        'content/grace-overlay': resolve(__dirname, 'src/content/grace-overlay.ts'),
       },
       output: {
         entryFileNames: (chunkInfo) => {
           // Background script needs to be at background/index.js
           if (chunkInfo.name === 'background') {
             return 'background/index.js';
-          }
-          // Content script needs to be at content/grace-overlay.js
-          if (chunkInfo.name === 'content/grace-overlay') {
-            return 'content/grace-overlay.js';
           }
           return 'assets/[name]-[hash].js';
         },

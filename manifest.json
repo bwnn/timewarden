@@ -8,10 +8,8 @@
     "storage",
     "notifications",
     "idle",
-    "alarms",
-    "scripting"
+    "alarms"
   ],
-  "host_permissions": ["<all_urls>"],
   "background": {
     "scripts": ["background/index.js"],
     "type": "module"

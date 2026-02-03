@@ -331,17 +331,13 @@ browser.alarms.onAlarm.addListener((alarm) => {
     handleGraceEndAlarm(name).catch((err) =>
       console.error('[TimeWarden] Grace end alarm error:', err)
     );
-  } else if (
-    name.startsWith(ALARM_PREFIX.NOTIFY_TEN_PERCENT) ||
-    name.startsWith(ALARM_PREFIX.NOTIFY_FIVE_MINUTES)
-  ) {
+  } else if (name.startsWith(ALARM_PREFIX.NOTIFY_TEN_PERCENT)) {
     handleNotificationAlarm(name).catch((err) =>
       console.error('[TimeWarden] Notification alarm error:', err)
     );
   } else if (name.startsWith(ALARM_PREFIX.LIMIT_REACHED)) {
-    handleLimitAlarm(name).catch((err) =>
-      console.error('[TimeWarden] Limit alarm error:', err)
-    );
+    // handleLimitAlarm enqueues into the serialized queue (errors caught internally)
+    handleLimitAlarm(name);
   } else {
     console.warn('[TimeWarden] Unknown alarm:', name);
   }

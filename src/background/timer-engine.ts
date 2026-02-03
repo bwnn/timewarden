@@ -33,10 +33,7 @@ import {
   getDomainUsage,
   getDomainConfigs,
 } from './storage-manager';
-import {
-  notifyTenPercentRemaining,
-  notifyFiveMinutesRemaining,
-} from './notification-manager';
+import { notifyTenPercentRemaining } from './notification-manager';
 import { startGracePeriod, isDomainInGracePeriod } from './block-manager';
 import { formatBadgeText } from '$lib/utils';
 
@@ -231,10 +228,12 @@ async function stopTracking(domain: string): Promise<void> {
     u.timeSpentSeconds += elapsed;
 
     // End the last open session
+    // Use += because flushActiveTrackingImpl may have already accumulated
+    // partial duration into durationSeconds since the session started
     const lastSession = u.sessions[u.sessions.length - 1];
     if (lastSession && lastSession.endTime === null) {
       lastSession.endTime = new Date().toISOString();
-      lastSession.durationSeconds = elapsed;
+      lastSession.durationSeconds += elapsed;
     }
 
     return u;
@@ -292,7 +291,7 @@ async function scheduleTrackingAlarms(
   domain: string,
   currentTimeSpent: number,
   limitMinutes: number,
-  notifications: { tenPercent: boolean; fiveMinutes: boolean }
+  notifications: { tenPercent: boolean }
 ): Promise<void> {
   const limitSeconds = limitMinutes * 60;
   const now = Date.now();
@@ -302,15 +301,6 @@ async function scheduleTrackingAlarms(
   if (currentTimeSpent < tenPctThreshold && !notifications.tenPercent) {
     const delaySeconds = tenPctThreshold - currentTimeSpent;
     browser.alarms.create(`${ALARM_PREFIX.NOTIFY_TEN_PERCENT}${domain}`, {
-      when: now + delaySeconds * 1000,
-    });
-  }
-
-  // 5 minutes remaining notification
-  const fiveMinThreshold = limitSeconds - NOTIFICATION_THRESHOLDS.FIVE_MINUTES_SECONDS;
-  if (fiveMinThreshold > 0 && currentTimeSpent < fiveMinThreshold && !notifications.fiveMinutes) {
-    const delaySeconds = fiveMinThreshold - currentTimeSpent;
-    browser.alarms.create(`${ALARM_PREFIX.NOTIFY_FIVE_MINUTES}${domain}`, {
       when: now + delaySeconds * 1000,
     });
   }
@@ -331,7 +321,6 @@ async function scheduleTrackingAlarms(
 async function clearTrackingAlarms(domain: string): Promise<void> {
   await Promise.all([
     browser.alarms.clear(`${ALARM_PREFIX.NOTIFY_TEN_PERCENT}${domain}`),
-    browser.alarms.clear(`${ALARM_PREFIX.NOTIFY_FIVE_MINUTES}${domain}`),
     browser.alarms.clear(`${ALARM_PREFIX.LIMIT_REACHED}${domain}`),
   ]);
 }
@@ -341,22 +330,13 @@ async function clearTrackingAlarms(domain: string): Promise<void> {
 // ============================================================
 
 /**
- * Handle a notification threshold alarm (10% remaining or 5 minutes remaining).
- * Dispatches browser notifications and marks them as fired in storage.
+ * Handle a notification threshold alarm (10% remaining).
+ * Dispatches browser notification and marks it as fired in storage.
  */
 export async function handleNotificationAlarm(alarmName: string): Promise<void> {
-  let domain: string;
-  let field: 'tenPercent' | 'fiveMinutes';
+  if (!alarmName.startsWith(ALARM_PREFIX.NOTIFY_TEN_PERCENT)) return;
 
-  if (alarmName.startsWith(ALARM_PREFIX.NOTIFY_TEN_PERCENT)) {
-    domain = alarmName.slice(ALARM_PREFIX.NOTIFY_TEN_PERCENT.length);
-    field = 'tenPercent';
-  } else if (alarmName.startsWith(ALARM_PREFIX.NOTIFY_FIVE_MINUTES)) {
-    domain = alarmName.slice(ALARM_PREFIX.NOTIFY_FIVE_MINUTES.length);
-    field = 'fiveMinutes';
-  } else {
-    return;
-  }
+  const domain = alarmName.slice(ALARM_PREFIX.NOTIFY_TEN_PERCENT.length);
 
   const config = await getDomainConfig(domain);
   if (!config) return;
@@ -366,25 +346,29 @@ export async function handleNotificationAlarm(alarmName: string): Promise<void> 
 
   // Mark notification as fired to prevent duplicates
   await updateDomainUsage(domain, date, (u) => {
-    u.notifications[field] = true;
+    u.notifications.tenPercent = true;
     return u;
   });
 
-  // Dispatch browser notification
-  if (field === 'tenPercent') {
-    await notifyTenPercentRemaining(domain);
-  } else {
-    await notifyFiveMinutesRemaining(domain);
-  }
-
-  console.log(`[TimeWarden] Notification alarm: ${field} for ${domain}`);
+  await notifyTenPercentRemaining(domain);
+  console.log(`[TimeWarden] Notification alarm: tenPercent for ${domain}`);
 }
 
 /**
  * Handle a limit-reached alarm.
- * Stops tracking and triggers the grace period → blocking flow.
+ * Enqueued into the serialized reevaluation queue to prevent storage
+ * races with flushActiveTracking and other queued operations.
  */
-export async function handleLimitAlarm(alarmName: string): Promise<void> {
+export function handleLimitAlarm(alarmName: string): void {
+  enqueue(() => handleLimitAlarmImpl(alarmName));
+}
+
+/**
+ * Actual limit-reached handler.
+ * Stops tracking and triggers the grace period → blocking flow.
+ * Must run inside the serialized queue.
+ */
+async function handleLimitAlarmImpl(alarmName: string): Promise<void> {
   const domain = alarmName.slice(ALARM_PREFIX.LIMIT_REACHED.length);
 
   console.log(`[TimeWarden] Limit reached for ${domain}`);
@@ -521,10 +505,12 @@ export async function persistAllTracking(): Promise<void> {
       u.timeSpentSeconds += elapsed;
 
       // End last open session
+      // Use += because flushActiveTrackingImpl may have already accumulated
+      // partial duration into durationSeconds since the session started
       const lastSession = u.sessions[u.sessions.length - 1];
       if (lastSession && lastSession.endTime === null) {
         lastSession.endTime = new Date(now).toISOString();
-        lastSession.durationSeconds = elapsed;
+        lastSession.durationSeconds += elapsed;
       }
 
       return u;

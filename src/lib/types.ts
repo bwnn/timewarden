@@ -65,8 +65,6 @@ export interface DomainUsage {
   notifications: {
     /** Fired when 90% of time used */
     tenPercent: boolean;
-    /** Fired when <= 5 min remaining */
-    fiveMinutes: boolean;
   };
   /** Whether this domain is currently blocked */
   blocked: boolean;

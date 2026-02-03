@@ -201,7 +201,6 @@ export async function getOrCreateDomainUsage(
       resetTime: effectiveResetTime,
       notifications: {
         tenPercent: false,
-        fiveMinutes: false,
       },
       blocked: false,
       blockedAt: null,

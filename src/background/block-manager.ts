@@ -2,7 +2,7 @@
  * Block Manager — grace period orchestration, tab redirection, and navigation interception.
  *
  * Responsibilities:
- * - Start grace period: inject content script countdown overlay into all domain tabs
+ * - Start grace period: notify the user via browser notification, schedule block alarm
  * - End grace period: redirect all domain tabs to blocked.html, mark domain as blocked
  * - Intercept new navigations to blocked domains via tabs.onUpdated
  * - Enforce existing blocks on startup (redirect open tabs of blocked domains)
@@ -69,9 +69,6 @@ export async function startGracePeriod(domain: string): Promise<void> {
   const endsAt = Date.now() + gracePeriodSeconds * 1000;
   graceEndsAt.set(domain, endsAt);
 
-  // Inject grace overlay content script into all tabs of this domain
-  await injectGraceOverlay(domain, gracePeriodSeconds);
-
   // Schedule alarm for when grace period ends
   browser.alarms.create(`${GRACE_ALARM_PREFIX}${domain}`, {
     when: endsAt,
@@ -81,35 +78,6 @@ export async function startGracePeriod(domain: string): Promise<void> {
   await notifyGracePeriodStarting(domain, gracePeriodSeconds);
 
   console.log(`[TimeWarden] Grace period started for ${domain} (${gracePeriodSeconds}s)`);
-}
-
-/**
- * Inject the grace overlay content script into all tabs of a domain.
- */
-async function injectGraceOverlay(domain: string, gracePeriodSeconds: number): Promise<void> {
-  const tracking = activeTracking.get(domain);
-  if (!tracking) return;
-
-  for (const [tabId] of tracking.tabs) {
-    try {
-      // Inject the countdown overlay content script
-      await browser.scripting.executeScript({
-        target: { tabId },
-        files: ['content/grace-overlay.js'],
-      });
-
-      // Send the grace period duration to the content script
-      // The content script listens for this message to start the countdown
-      await browser.tabs.sendMessage(tabId, {
-        type: 'GRACE_PERIOD_START',
-        domain,
-        durationSeconds: gracePeriodSeconds,
-      });
-    } catch (err) {
-      // Tab might not be injectable (e.g., about: pages, browser internals)
-      console.warn(`[TimeWarden] Failed to inject grace overlay into tab ${tabId}:`, err);
-    }
-  }
 }
 
 /**

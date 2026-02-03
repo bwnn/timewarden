@@ -36,7 +36,6 @@ export const IDLE_THRESHOLD_SECONDS = 60;
 /** Alarm name prefixes */
 export const ALARM_PREFIX = {
   NOTIFY_TEN_PERCENT: 'notify-10pct-',
-  NOTIFY_FIVE_MINUTES: 'notify-5min-',
   LIMIT_REACHED: 'limit-',
   RESET: 'reset-',
 } as const;
@@ -45,6 +44,4 @@ export const ALARM_PREFIX = {
 export const NOTIFICATION_THRESHOLDS = {
   /** Percentage of limit used before "10% remaining" notification */
   TEN_PERCENT_USED: 0.9,
-  /** Seconds remaining before "5 minutes" notification */
-  FIVE_MINUTES_SECONDS: 300,
 } as const;
