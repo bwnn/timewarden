@@ -5,7 +5,6 @@
     GlobalSettings as GlobalSettingsType,
     DailyUsage,
     DayOfWeek,
-    DayOverride,
   } from '$lib/types';
   import {
     getDashboardData,
@@ -13,15 +12,12 @@
     removeDomain as removeDomainMsg,
     saveGlobalSettings as saveGlobalSettingsMsg,
   } from '$lib/messaging';
-  import { formatLimitSeconds, getCurrentPeriodDate } from '$lib/utils';
-  import { MIN_LIMIT_SECONDS, MAX_LIMIT_SECONDS } from '$lib/constants';
+  import { getCurrentPeriodDate } from '$lib/utils';
   import { initTheme, applyTheme } from '$lib/theme';
   import GlobalSettingsComp from './components/GlobalSettings.svelte';
   import DomainCard from './components/DomainCard.svelte';
-  import DomainForm from './components/DomainForm.svelte';
-  import DayOverrideGrid from './components/DayOverrideGrid.svelte';
+  import DomainConfigEditor from './components/DomainConfigEditor.svelte';
   import ConfirmDialog from './components/ConfirmDialog.svelte';
-  import TimePicker from './components/TimePicker.svelte';
 
   // -- State ---------------------------------------------------------
 
@@ -40,45 +36,17 @@
   // UI state
   let showAddForm = $state(false);
   let selectedDomain = $state<string | null>(null);
-  let editConfig = $state<DomainConfig | null>(null);
-  let originalEditConfig = $state<DomainConfig | null>(null);
   let showDeleteConfirm = $state(false);
   let deletingDomain = $state<string | null>(null);
-  let saveStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   // -- Derived -------------------------------------------------------
 
   let existingDomains = $derived(domains.map((d) => d.domain));
 
-  let editLimitHours = $derived(
-    editConfig ? Math.floor(editConfig.dailyLimitSeconds / 3600) : 0
-  );
-  let editLimitMinutes = $derived(
-    editConfig ? Math.floor((editConfig.dailyLimitSeconds % 3600) / 60) : 0
-  );
-  let editLimitSeconds = $derived(
-    editConfig ? editConfig.dailyLimitSeconds % 60 : 0
-  );
-
-  let editUseCustomReset = $derived(
-    editConfig !== null && editConfig.resetTime !== null
-  );
-
-  let editEffectiveResetTime = $derived(
-    editConfig?.resetTime ?? settings.resetTime
-  );
-
-  let isDirty = $derived(
-    editConfig && originalEditConfig
-      ? JSON.stringify($state.snapshot(editConfig)) !== JSON.stringify($state.snapshot(originalEditConfig))
-      : false
-  );
-
   // Lock detection: determine if the current period has started for the selected domain
   let lockedDay = $derived.by((): DayOfWeek | null => {
     if (!selectedDomain) return null;
 
-    // Use the ORIGINAL saved config, not the edit copy
     const originalConfig = domains.find((d) => d.domain === selectedDomain);
     if (!originalConfig) return null;
 
@@ -88,7 +56,6 @@
 
     if (!domainUsage) return null;
 
-    // Determine the day of week of the period start date
     const parts = periodDate.split('-').map(Number);
     const periodDateObj = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
     return String(periodDateObj.getDay()) as DayOfWeek;
@@ -136,31 +103,20 @@
     try {
       await saveGlobalSettingsMsg(newSettings);
       settings = newSettings;
-      // Apply the new theme immediately
       applyTheme(newSettings.theme);
     } catch (e) {
       console.error('[TimeWarden] Failed to save global settings:', e);
     }
   }
 
-  // -- Handlers: Domain Selection & Edit -----------------------------
+  // -- Handlers: Domain Selection ------------------------------------
 
   function handleSelectDomain(domain: string) {
     if (selectedDomain === domain) {
-      // Deselect
       selectedDomain = null;
-      editConfig = null;
-      originalEditConfig = null;
-      saveStatus = 'idle';
     } else {
       selectedDomain = domain;
-      const config = domains.find((d) => d.domain === domain);
-      if (config) {
-        editConfig = $state.snapshot(config) as DomainConfig;
-        originalEditConfig = $state.snapshot(config) as DomainConfig;
-      }
       showAddForm = false;
-      saveStatus = 'idle';
     }
   }
 
@@ -172,98 +128,31 @@
     try {
       await saveDomainConfigMsg(updated);
       domains = domains.map((d) => (d.domain === domain ? updated : d));
-      if (editConfig?.domain === domain) {
-        editConfig = { ...editConfig, enabled };
-      }
     } catch (e) {
       console.error('[TimeWarden] Failed to toggle domain:', e);
     }
   }
 
-  // -- Handlers: Add Domain ------------------------------------------
+  // -- Handlers: Add / Save / Delete ---------------------------------
 
   async function handleAddDomain(config: DomainConfig) {
-    try {
-      await saveDomainConfigMsg(config);
-      domains = [...domains, config];
-      showAddForm = false;
-    } catch (e) {
-      console.error('[TimeWarden] Failed to add domain:', e);
-    }
+    await saveDomainConfigMsg(config);
+    domains = [...domains, config];
+    showAddForm = false;
+  }
+
+  async function handleSaveEdit(config: DomainConfig) {
+    // Preserve the canonical enabled state from the domains array
+    // (the toggle switch may have changed it while the editor was open)
+    const currentDomain = domains.find((d) => d.domain === config.domain);
+    const toSave = { ...config, enabled: currentDomain?.enabled ?? config.enabled };
+    await saveDomainConfigMsg(toSave);
+    domains = domains.map((d) => (d.domain === toSave.domain ? toSave : d));
   }
 
   function handleShowAdd() {
     showAddForm = true;
     selectedDomain = null;
-    editConfig = null;
-    saveStatus = 'idle';
-  }
-
-  // -- Handlers: Edit Fields -----------------------------------------
-
-  function handleEditLimitChange(newHours: number, newMins: number, newSecs: number) {
-    if (!editConfig) return;
-    const total = Math.max(
-      MIN_LIMIT_SECONDS,
-      Math.min(MAX_LIMIT_SECONDS, newHours * 3600 + newMins * 60 + newSecs)
-    );
-    editConfig = { ...editConfig, dailyLimitSeconds: total };
-  }
-
-  function handleEditResetToggle(useCustom: boolean) {
-    if (!editConfig) return;
-    editConfig = {
-      ...editConfig,
-      resetTime: useCustom ? settings.resetTime : null,
-    };
-  }
-
-  function handleEditResetChange(time: string) {
-    if (!editConfig) return;
-    editConfig = { ...editConfig, resetTime: time };
-  }
-
-  function handleEditPauseChange(value: number) {
-    if (!editConfig) return;
-    editConfig = {
-      ...editConfig,
-      pauseAllowanceSeconds: Math.max(0, Math.min(3600, value)),
-    };
-  }
-
-  function handleDayOverridesChange(
-    overrides: Partial<Record<DayOfWeek, DayOverride>>
-  ) {
-    if (!editConfig) return;
-    editConfig = { ...editConfig, dayOverrides: overrides };
-  }
-
-  // -- Handlers: Save / Cancel / Delete ------------------------------
-
-  async function handleSaveEdit() {
-    if (!editConfig) return;
-    try {
-      saveStatus = 'saving';
-      const snapshot = $state.snapshot(editConfig) as DomainConfig;
-      await saveDomainConfigMsg(snapshot);
-      domains = domains.map((d) =>
-        d.domain === snapshot.domain ? snapshot : d
-      );
-      originalEditConfig = $state.snapshot(editConfig) as DomainConfig;
-      saveStatus = 'saved';
-      setTimeout(() => {
-        if (saveStatus === 'saved') saveStatus = 'idle';
-      }, 2000);
-    } catch (e) {
-      saveStatus = 'error';
-      console.error('[TimeWarden] Failed to save domain config:', e);
-    }
-  }
-
-  function handleRevertEdit() {
-    if (originalEditConfig) {
-      editConfig = $state.snapshot(originalEditConfig) as DomainConfig;
-    }
   }
 
   function handleInlineDelete(domain: string) {
@@ -279,9 +168,6 @@
       domains = domains.filter((d) => d.domain !== domain);
       if (selectedDomain === domain) {
         selectedDomain = null;
-        editConfig = null;
-        originalEditConfig = null;
-        saveStatus = 'idle';
       }
       showDeleteConfirm = false;
       deletingDomain = null;
@@ -338,9 +224,11 @@
           <!-- Add Domain Form -->
           {#if showAddForm}
             <div class="mb-4">
-              <DomainForm
+              <DomainConfigEditor
+                mode="add"
                 {existingDomains}
-                onsubmit={handleAddDomain}
+                globalResetTime={settings.resetTime}
+                onsave={handleAddDomain}
                 oncancel={() => (showAddForm = false)}
               />
             </div>
@@ -365,172 +253,15 @@
                   />
 
                   <!-- Inline edit panel -->
-                  {#if selectedDomain === config.domain && editConfig}
-                    <div class="border border-t-0 border-gray-200 dark:border-gray-700 rounded-b-lg bg-white dark:bg-gray-800">
-                      <div class="p-6 space-y-6">
-                        <!-- Default Daily Limit -->
-                        <div>
-                          <span class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Default Daily Limit</span>
-                          <div class="flex items-center gap-2">
-                            <label class="sr-only" for="edit-limit-hours">Hours</label>
-                            <input
-                              id="edit-limit-hours"
-                              type="number"
-                              value={editLimitHours}
-                              min="0"
-                              max="24"
-                              onchange={(e) =>
-                                handleEditLimitChange(
-                                  parseInt((e.target as HTMLInputElement).value) || 0,
-                                  editLimitMinutes,
-                                  editLimitSeconds
-                                )}
-                              class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
-                                     focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                            />
-                            <span class="text-sm text-gray-500 dark:text-gray-400">h</span>
-                            <label class="sr-only" for="edit-limit-minutes">Minutes</label>
-                            <input
-                              id="edit-limit-minutes"
-                              type="number"
-                              value={editLimitMinutes}
-                              min="0"
-                              max="59"
-                              onchange={(e) =>
-                                handleEditLimitChange(
-                                  editLimitHours,
-                                  parseInt((e.target as HTMLInputElement).value) || 0,
-                                  editLimitSeconds
-                                )}
-                              class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
-                                     focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                            />
-                            <span class="text-sm text-gray-500 dark:text-gray-400">m</span>
-                            <label class="sr-only" for="edit-limit-seconds">Seconds</label>
-                            <input
-                              id="edit-limit-seconds"
-                              type="number"
-                              value={editLimitSeconds}
-                              min="0"
-                              max="59"
-                              onchange={(e) =>
-                                handleEditLimitChange(
-                                  editLimitHours,
-                                  editLimitMinutes,
-                                  parseInt((e.target as HTMLInputElement).value) || 0
-                                )}
-                              class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
-                                     focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                            />
-                            <span class="text-sm text-gray-500 dark:text-gray-400">s</span>
-                            <span class="text-xs text-gray-400 dark:text-gray-500 ml-2">
-                              ({formatLimitSeconds(editConfig.dailyLimitSeconds)})
-                            </span>
-                          </div>
-                        </div>
-
-                        <!-- Domain Reset Time -->
-                        <fieldset>
-                          <legend class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Reset Time</legend>
-                          <div class="space-y-2">
-                            <label class="flex items-center gap-2 cursor-pointer">
-                              <input
-                                type="radio"
-                                name="reset-mode"
-                                checked={!editUseCustomReset}
-                                onchange={() => handleEditResetToggle(false)}
-                                class="text-blue-600 focus:ring-blue-500"
-                              />
-                              <span class="text-sm text-gray-700 dark:text-gray-300">
-                                Use global default
-                                <span class="text-gray-400 dark:text-gray-500">({settings.resetTime})</span>
-                              </span>
-                            </label>
-                            <label class="flex items-center gap-2 cursor-pointer">
-                              <input
-                                type="radio"
-                                name="reset-mode"
-                                checked={editUseCustomReset}
-                                onchange={() => handleEditResetToggle(true)}
-                                class="text-blue-600 focus:ring-blue-500"
-                              />
-                              <span class="text-sm text-gray-700 dark:text-gray-300">Custom reset time</span>
-                            </label>
-                            {#if editUseCustomReset}
-                              <div class="ml-6 w-28">
-                                <TimePicker
-                                  value={editConfig.resetTime ?? settings.resetTime}
-                                  onchange={handleEditResetChange}
-                                />
-                              </div>
-                            {/if}
-                          </div>
-                        </fieldset>
-
-                        <!-- Pause Allowance -->
-                        <div>
-                          <label for="edit-pause" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Pause Allowance</label>
-                          <div class="flex items-center gap-2">
-                            <input
-                              id="edit-pause"
-                              type="number"
-                              value={Math.floor(editConfig.pauseAllowanceSeconds / 60)}
-                              min="0"
-                              max="60"
-                              onchange={(e) =>
-                                handleEditPauseChange(
-                                  (parseInt((e.target as HTMLInputElement).value) || 0) * 60
-                                )}
-                              class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
-                                     focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                            />
-                            <span class="text-sm text-gray-500 dark:text-gray-400">minutes per day</span>
-                          </div>
-                          <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Maximum time you can pause tracking per day</p>
-                        </div>
-
-                        <!-- Day Overrides -->
-                        <div>
-                          <span class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Day Overrides</span>
-                          <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                            Customize limits and reset times for specific days. Click "Default" to set a custom value.
-                          </p>
-                          <DayOverrideGrid
-                            dayOverrides={editConfig.dayOverrides}
-                            defaultLimitSeconds={editConfig.dailyLimitSeconds}
-                            defaultResetTime={editEffectiveResetTime}
-                            {lockedDay}
-                            onchange={handleDayOverridesChange}
-                          />
-                        </div>
-                      </div>
-
-                      <!-- Action bar -->
-                      <div class="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700 rounded-b-lg flex items-center justify-end gap-3">
-                        {#if saveStatus === 'saved'}
-                          <span class="text-sm text-green-600 dark:text-green-400" role="status">Saved!</span>
-                        {:else if saveStatus === 'error'}
-                          <span class="text-sm text-red-600 dark:text-red-400" role="alert">Save failed</span>
-                        {/if}
-                        {#if isDirty}
-                          <button
-                            type="button"
-                            onclick={handleRevertEdit}
-                            class="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-                          >
-                            Revert Changes
-                          </button>
-                        {/if}
-                        <button
-                          type="button"
-                          onclick={handleSaveEdit}
-                          disabled={saveStatus === 'saving'}
-                          class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                          {saveStatus === 'saving' ? 'Saving...' : 'Save Changes'}
-                        </button>
-                      </div>
-                    </div>
+                  {#if selectedDomain === config.domain}
+                    <DomainConfigEditor
+                      mode="edit"
+                      initialConfig={config}
+                      globalResetTime={settings.resetTime}
+                      {lockedDay}
+                      onsave={handleSaveEdit}
+                      oncancel={() => { selectedDomain = null; }}
+                    />
                   {/if}
                 </div>
               {/each}

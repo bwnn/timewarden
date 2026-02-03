@@ -90,7 +90,7 @@
     const updated: DayOverride = { ...current };
     delete updated.resetTime;
     const newOverrides = { ...dayOverrides };
-    if (updated.limitMinutes === undefined) {
+    if (updated.limitSeconds === undefined) {
       delete newOverrides[day];
     } else {
       newOverrides[day] = updated;
