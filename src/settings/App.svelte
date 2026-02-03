@@ -144,7 +144,7 @@
       selectedDomain = domain;
       const config = domains.find((d) => d.domain === domain);
       if (config) {
-        editConfig = structuredClone(config);
+        editConfig = $state.snapshot(config) as DomainConfig;
       }
       showAddForm = false;
       saveStatus = 'idle';
@@ -155,7 +155,7 @@
     const config = domains.find((d) => d.domain === domain);
     if (!config) return;
 
-    const updated = { ...config, enabled };
+    const updated = { ...$state.snapshot(config), enabled } as DomainConfig;
     try {
       await saveDomainConfigMsg(updated);
       domains = domains.map((d) => (d.domain === domain ? updated : d));
@@ -231,9 +231,10 @@
     if (!editConfig) return;
     try {
       saveStatus = 'saving';
-      await saveDomainConfigMsg(editConfig);
+      const snapshot = $state.snapshot(editConfig) as DomainConfig;
+      await saveDomainConfigMsg(snapshot);
       domains = domains.map((d) =>
-        d.domain === editConfig!.domain ? editConfig! : d
+        d.domain === snapshot.domain ? snapshot : d
       );
       saveStatus = 'saved';
       setTimeout(() => {
