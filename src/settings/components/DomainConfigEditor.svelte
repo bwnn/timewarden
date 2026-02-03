@@ -157,7 +157,7 @@
 
     // Validate limit
     if (config.dailyLimitSeconds < MIN_LIMIT_SECONDS) {
-      error = 'Limit must be at least 1 minute.';
+      error = 'Limit must be at least 1 second.';
       return;
     }
     if (config.dailyLimitSeconds > MAX_LIMIT_SECONDS) {

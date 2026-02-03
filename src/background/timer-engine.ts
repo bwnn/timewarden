@@ -750,10 +750,39 @@ export function getPauseState(domain: string, pausedSecondsFromStorage: number, 
 // ============================================================
 
 /**
+ * Handle for the rapid badge refresh timer.
+ * Active when the badge shows a live countdown (pause or grace period).
+ * Uses setTimeout (1s interval) since service worker is guaranteed alive
+ * during these runtime-only states.
+ */
+let badgeRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Schedule a rapid (1-second) badge refresh.
+ * Called when the badge is showing a live countdown (pause or grace).
+ */
+function scheduleRapidBadgeRefresh(): void {
+  badgeRefreshTimer = setTimeout(() => {
+    badgeRefreshTimer = null;
+    updateBadge().catch((err) => {
+      console.error('[TimeWarden] Rapid badge refresh error:', err);
+    });
+  }, 1000);
+}
+
+/**
  * Update the toolbar badge to show time remaining for the current active domain.
  * Shows remaining time for the focused tracked domain, or clears badge if none.
+ *
+ * When the badge shows a countdown (paused or grace period), schedules a
+ * rapid 1-second refresh timer so the countdown updates smoothly.
  */
 export async function updateBadge(): Promise<void> {
+  // Clear any existing rapid refresh timer — we'll re-schedule if needed
+  if (badgeRefreshTimer !== null) {
+    clearTimeout(badgeRefreshTimer);
+    badgeRefreshTimer = null;
+  }
   // Find the domain of the currently active tab
   const currentDomain = tabDomainMap.get(activeTabId);
 
@@ -779,6 +808,7 @@ export async function updateBadge(): Promise<void> {
       : '0';
     await browser.action.setBadgeText({ text: graceText });
     await browser.action.setBadgeBackgroundColor({ color: '#EF4444' }); // red
+    scheduleRapidBadgeRefresh();
     return;
   }
 
@@ -786,6 +816,7 @@ export async function updateBadge(): Promise<void> {
     const pauseText = formatBadgeText(status.pauseRemainingSeconds, false);
     await browser.action.setBadgeText({ text: pauseText });
     await browser.action.setBadgeBackgroundColor({ color: '#F59E0B' }); // amber
+    scheduleRapidBadgeRefresh();
     return;
   }
 

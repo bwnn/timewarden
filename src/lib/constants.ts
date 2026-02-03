@@ -24,8 +24,8 @@ export const DEFAULT_PAUSE_ALLOWANCE_SECONDS = 300;
 /** Default daily limit in seconds for new domains (1 hour) */
 export const DEFAULT_DAILY_LIMIT_SECONDS = 3600;
 
-/** Minimum configurable limit in seconds (1 minute) */
-export const MIN_LIMIT_SECONDS = 60;
+/** Minimum configurable limit in seconds (1 second) */
+export const MIN_LIMIT_SECONDS = 1;
 
 /** Maximum configurable limit in seconds (24 hours) */
 export const MAX_LIMIT_SECONDS = 86400;
