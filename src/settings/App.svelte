@@ -41,6 +41,7 @@
   let showAddForm = $state(false);
   let selectedDomain = $state<string | null>(null);
   let editConfig = $state<DomainConfig | null>(null);
+  let originalEditConfig = $state<DomainConfig | null>(null);
   let showDeleteConfirm = $state(false);
   let saveStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
@@ -64,6 +65,12 @@
 
   let editEffectiveResetTime = $derived(
     editConfig?.resetTime ?? settings.resetTime
+  );
+
+  let isDirty = $derived(
+    editConfig && originalEditConfig
+      ? JSON.stringify($state.snapshot(editConfig)) !== JSON.stringify($state.snapshot(originalEditConfig))
+      : false
   );
 
   // Lock detection: determine if the current period has started for the selected domain
@@ -142,12 +149,14 @@
       // Deselect
       selectedDomain = null;
       editConfig = null;
+      originalEditConfig = null;
       saveStatus = 'idle';
     } else {
       selectedDomain = domain;
       const config = domains.find((d) => d.domain === domain);
       if (config) {
         editConfig = $state.snapshot(config) as DomainConfig;
+        originalEditConfig = $state.snapshot(config) as DomainConfig;
       }
       showAddForm = false;
       saveStatus = 'idle';
@@ -239,6 +248,7 @@
       domains = domains.map((d) =>
         d.domain === snapshot.domain ? snapshot : d
       );
+      originalEditConfig = $state.snapshot(editConfig) as DomainConfig;
       saveStatus = 'saved';
       setTimeout(() => {
         if (saveStatus === 'saved') saveStatus = 'idle';
@@ -252,7 +262,14 @@
   function handleCancelEdit() {
     selectedDomain = null;
     editConfig = null;
+    originalEditConfig = null;
     saveStatus = 'idle';
+  }
+
+  function handleRevertEdit() {
+    if (originalEditConfig) {
+      editConfig = $state.snapshot(originalEditConfig) as DomainConfig;
+    }
   }
 
   async function handleDeleteDomain() {
@@ -262,6 +279,7 @@
       domains = domains.filter((d) => d.domain !== selectedDomain);
       selectedDomain = null;
       editConfig = null;
+      originalEditConfig = null;
       showDeleteConfirm = false;
       saveStatus = 'idle';
     } catch (e) {
@@ -506,6 +524,15 @@
                   <span class="text-sm text-green-600 dark:text-green-400" role="status">Saved!</span>
                 {:else if saveStatus === 'error'}
                   <span class="text-sm text-red-600 dark:text-red-400" role="alert">Save failed</span>
+                {/if}
+                {#if isDirty}
+                  <button
+                    type="button"
+                    onclick={handleRevertEdit}
+                    class="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    Revert Changes
+                  </button>
                 {/if}
                 <button
                   type="button"
