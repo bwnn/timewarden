@@ -147,7 +147,7 @@
           <!-- Limit -->
           <div class="flex items-center justify-between">
             <dt class="text-gray-600 dark:text-gray-400">Daily Limit</dt>
-            <dd class="font-semibold text-gray-900 dark:text-gray-100">{formatTime(stats.limitMinutes * 60)}</dd>
+            <dd class="font-semibold text-gray-900 dark:text-gray-100">{formatTime(stats.limitSeconds)}</dd>
           </div>
 
           <hr class="border-gray-100 dark:border-gray-700" />

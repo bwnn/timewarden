@@ -3,13 +3,13 @@
 
   interface Props {
     timeSpentSeconds: number;
-    limitMinutes: number;
+    limitSeconds: number;
   }
 
-  let { timeSpentSeconds, limitMinutes }: Props = $props();
+  let { timeSpentSeconds, limitSeconds }: Props = $props();
 
-  let usedPercent = $derived(getUsagePercent(timeSpentSeconds, limitMinutes));
-  let color = $derived(getProgressColor(timeSpentSeconds, limitMinutes));
+  let usedPercent = $derived(getUsagePercent(timeSpentSeconds, limitSeconds));
+  let color = $derived(getProgressColor(timeSpentSeconds, limitSeconds));
 
   let barColorClass = $derived(
     color === 'green'

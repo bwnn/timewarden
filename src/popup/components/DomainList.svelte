@@ -30,7 +30,7 @@
 
   function getTimeColor(s: StatusResponse): string {
     if (s.isBlocked) return 'text-red-600 dark:text-red-400';
-    const color = getProgressColor(s.timeSpentSeconds, s.limitMinutes);
+    const color = getProgressColor(s.timeSpentSeconds, s.limitSeconds);
     if (color === 'red') return 'text-red-600 dark:text-red-400';
     if (color === 'yellow') return 'text-amber-600 dark:text-amber-400';
     return 'text-gray-900 dark:text-gray-100';

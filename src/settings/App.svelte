@@ -13,8 +13,8 @@
     removeDomain as removeDomainMsg,
     saveGlobalSettings as saveGlobalSettingsMsg,
   } from '$lib/messaging';
-  import { formatLimitMinutes, getCurrentPeriodDate } from '$lib/utils';
-  import { MIN_LIMIT_MINUTES, MAX_LIMIT_MINUTES } from '$lib/constants';
+  import { formatLimitSeconds, getCurrentPeriodDate } from '$lib/utils';
+  import { MIN_LIMIT_SECONDS, MAX_LIMIT_SECONDS } from '$lib/constants';
   import { initTheme, applyTheme } from '$lib/theme';
   import GlobalSettingsComp from './components/GlobalSettings.svelte';
   import DomainCard from './components/DomainCard.svelte';
@@ -49,10 +49,13 @@
   let existingDomains = $derived(domains.map((d) => d.domain));
 
   let editLimitHours = $derived(
-    editConfig ? Math.floor(editConfig.dailyLimitMinutes / 60) : 0
+    editConfig ? Math.floor(editConfig.dailyLimitSeconds / 3600) : 0
   );
   let editLimitMinutes = $derived(
-    editConfig ? editConfig.dailyLimitMinutes % 60 : 0
+    editConfig ? Math.floor((editConfig.dailyLimitSeconds % 3600) / 60) : 0
+  );
+  let editLimitSeconds = $derived(
+    editConfig ? editConfig.dailyLimitSeconds % 60 : 0
   );
 
   let editUseCustomReset = $derived(
@@ -188,13 +191,13 @@
 
   // -- Handlers: Edit Fields -----------------------------------------
 
-  function handleEditLimitChange(newHours: number, newMins: number) {
+  function handleEditLimitChange(newHours: number, newMins: number, newSecs: number) {
     if (!editConfig) return;
     const total = Math.max(
-      MIN_LIMIT_MINUTES,
-      Math.min(MAX_LIMIT_MINUTES, newHours * 60 + newMins)
+      MIN_LIMIT_SECONDS,
+      Math.min(MAX_LIMIT_SECONDS, newHours * 3600 + newMins * 60 + newSecs)
     );
-    editConfig = { ...editConfig, dailyLimitMinutes: total };
+    editConfig = { ...editConfig, dailyLimitSeconds: total };
   }
 
   function handleEditResetToggle(useCustom: boolean) {
@@ -214,7 +217,7 @@
     if (!editConfig) return;
     editConfig = {
       ...editConfig,
-      pauseAllowanceMinutes: Math.max(0, Math.min(60, value)),
+      pauseAllowanceSeconds: Math.max(0, Math.min(3600, value)),
     };
   }
 
@@ -366,12 +369,13 @@
                     onchange={(e) =>
                       handleEditLimitChange(
                         parseInt((e.target as HTMLInputElement).value) || 0,
-                        editLimitMinutes
+                        editLimitMinutes,
+                        editLimitSeconds
                       )}
                     class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
                            focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                   />
-                  <span class="text-sm text-gray-500 dark:text-gray-400">hours</span>
+                  <span class="text-sm text-gray-500 dark:text-gray-400">h</span>
                   <label class="sr-only" for="edit-limit-minutes">Minutes</label>
                   <input
                     id="edit-limit-minutes"
@@ -382,14 +386,32 @@
                     onchange={(e) =>
                       handleEditLimitChange(
                         editLimitHours,
+                        parseInt((e.target as HTMLInputElement).value) || 0,
+                        editLimitSeconds
+                      )}
+                    class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
+                           focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                  />
+                  <span class="text-sm text-gray-500 dark:text-gray-400">m</span>
+                  <label class="sr-only" for="edit-limit-seconds">Seconds</label>
+                  <input
+                    id="edit-limit-seconds"
+                    type="number"
+                    value={editLimitSeconds}
+                    min="0"
+                    max="59"
+                    onchange={(e) =>
+                      handleEditLimitChange(
+                        editLimitHours,
+                        editLimitMinutes,
                         parseInt((e.target as HTMLInputElement).value) || 0
                       )}
                     class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
                            focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                   />
-                  <span class="text-sm text-gray-500 dark:text-gray-400">minutes</span>
+                  <span class="text-sm text-gray-500 dark:text-gray-400">s</span>
                   <span class="text-xs text-gray-400 dark:text-gray-500 ml-2">
-                    ({formatLimitMinutes(editConfig.dailyLimitMinutes)})
+                    ({formatLimitSeconds(editConfig.dailyLimitSeconds)})
                   </span>
                 </div>
               </div>
@@ -439,12 +461,12 @@
                   <input
                     id="edit-pause"
                     type="number"
-                    value={editConfig.pauseAllowanceMinutes}
+                    value={Math.floor(editConfig.pauseAllowanceSeconds / 60)}
                     min="0"
                     max="60"
                     onchange={(e) =>
                       handleEditPauseChange(
-                        parseInt((e.target as HTMLInputElement).value) || 0
+                        (parseInt((e.target as HTMLInputElement).value) || 0) * 60
                       )}
                     class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
                            focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
@@ -462,7 +484,7 @@
                 </p>
                 <DayOverrideGrid
                   dayOverrides={editConfig.dayOverrides}
-                  defaultLimitMinutes={editConfig.dailyLimitMinutes}
+                  defaultLimitSeconds={editConfig.dailyLimitSeconds}
                   defaultResetTime={editEffectiveResetTime}
                   {lockedDay}
                   onchange={handleDayOverridesChange}

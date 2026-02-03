@@ -15,7 +15,7 @@ import { formatDate } from '$lib/utils';
 export interface DomainDaySummary {
   domain: string;
   timeSpentSeconds: number;
-  limitMinutes: number;
+  limitSeconds: number;
   visitCount: number;
   sessionCount: number;
   blocked: boolean;
@@ -122,7 +122,7 @@ export function buildDaySummaries(usage: DailyUsage[]): DaySummary[] {
     const domains: DomainDaySummary[] = day.domains.map((du) => ({
       domain: du.domain,
       timeSpentSeconds: du.timeSpentSeconds,
-      limitMinutes: du.limitMinutes,
+      limitSeconds: du.limitSeconds,
       visitCount: du.visitCount,
       sessionCount: du.sessions.length,
       blocked: du.blocked,
@@ -448,8 +448,7 @@ export function computeBehavioralInsights(usage: DailyUsage[]): BehavioralInsigh
 
       // Time saved: if domain NOT blocked, saved = limit - actual
       if (!du.blocked) {
-        const limitSeconds = du.limitMinutes * 60;
-        const saved = limitSeconds - du.timeSpentSeconds;
+        const saved = du.limitSeconds - du.timeSpentSeconds;
         if (saved > 0) {
           totalTimeSaved += saved;
         }

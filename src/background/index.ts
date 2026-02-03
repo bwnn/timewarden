@@ -257,7 +257,7 @@ async function getBlockedStatusForDomain(domain: string): Promise<BlockedStatusR
     return {
       domain,
       timeSpentSeconds: 0,
-      limitMinutes: 0,
+      limitSeconds: 0,
       visitCount: 0,
       sessionCount: 0,
       longestSessionSeconds: 0,
@@ -274,7 +274,7 @@ async function getBlockedStatusForDomain(domain: string): Promise<BlockedStatusR
     return {
       domain,
       timeSpentSeconds: 0,
-      limitMinutes: config.dailyLimitMinutes,
+      limitSeconds: config.dailyLimitSeconds,
       visitCount: 0,
       sessionCount: 0,
       longestSessionSeconds: 0,
@@ -294,7 +294,7 @@ async function getBlockedStatusForDomain(domain: string): Promise<BlockedStatusR
   return {
     domain,
     timeSpentSeconds: usage.timeSpentSeconds,
-    limitMinutes: usage.limitMinutes,
+    limitSeconds: usage.limitSeconds,
     visitCount: usage.visitCount,
     sessionCount: usage.sessions.length,
     longestSessionSeconds: Math.floor(longestSessionSeconds),

@@ -1,18 +1,18 @@
 <script lang="ts">
   import type { DayOfWeek, DayOverride } from '$lib/types';
-  import { getDayShortName, formatLimitMinutes } from '$lib/utils';
-  import { MIN_LIMIT_MINUTES, MAX_LIMIT_MINUTES } from '$lib/constants';
+  import { getDayShortName, formatLimitSeconds } from '$lib/utils';
+  import { MIN_LIMIT_SECONDS, MAX_LIMIT_SECONDS } from '$lib/constants';
   import TimePicker from './TimePicker.svelte';
 
   interface Props {
     dayOverrides: Partial<Record<DayOfWeek, DayOverride>>;
-    defaultLimitMinutes: number;
+    defaultLimitSeconds: number;
     defaultResetTime: string;
     lockedDay: DayOfWeek | null;
     onchange: (overrides: Partial<Record<DayOfWeek, DayOverride>>) => void;
   }
 
-  let { dayOverrides, defaultLimitMinutes, defaultResetTime, lockedDay, onchange }: Props = $props();
+  let { dayOverrides, defaultLimitSeconds, defaultResetTime, lockedDay, onchange }: Props = $props();
 
   // Days ordered Mon-Sun
   const days: DayOfWeek[] = ['1', '2', '3', '4', '5', '6', '0'];
@@ -20,23 +20,27 @@
   // -- Helpers ---------------------------------------------------
 
   function hasLimit(day: DayOfWeek): boolean {
-    return dayOverrides[day]?.limitMinutes !== undefined;
+    return dayOverrides[day]?.limitSeconds !== undefined;
   }
 
   function hasReset(day: DayOfWeek): boolean {
     return dayOverrides[day]?.resetTime !== undefined;
   }
 
-  function getLimitMinutes(day: DayOfWeek): number {
-    return dayOverrides[day]?.limitMinutes ?? defaultLimitMinutes;
+  function getLimitTotalSeconds(day: DayOfWeek): number {
+    return dayOverrides[day]?.limitSeconds ?? defaultLimitSeconds;
   }
 
   function getLimitHours(day: DayOfWeek): number {
-    return Math.floor(getLimitMinutes(day) / 60);
+    return Math.floor(getLimitTotalSeconds(day) / 3600);
   }
 
   function getLimitMins(day: DayOfWeek): number {
-    return getLimitMinutes(day) % 60;
+    return Math.floor((getLimitTotalSeconds(day) % 3600) / 60);
+  }
+
+  function getLimitSecs(day: DayOfWeek): number {
+    return getLimitTotalSeconds(day) % 60;
   }
 
   function getResetTime(day: DayOfWeek): string {
@@ -49,10 +53,10 @@
 
   // -- Mutations (emit new overrides to parent) ------------------
 
-  function setLimitOverride(day: DayOfWeek, totalMinutes: number) {
-    const clamped = Math.max(MIN_LIMIT_MINUTES, Math.min(MAX_LIMIT_MINUTES, totalMinutes));
+  function setLimitOverride(day: DayOfWeek, totalSeconds: number) {
+    const clamped = Math.max(MIN_LIMIT_SECONDS, Math.min(MAX_LIMIT_SECONDS, totalSeconds));
     const newOverrides = { ...dayOverrides };
-    newOverrides[day] = { ...(newOverrides[day] ?? {}), limitMinutes: clamped };
+    newOverrides[day] = { ...(newOverrides[day] ?? {}), limitSeconds: clamped };
     onchange(newOverrides);
   }
 
@@ -60,7 +64,7 @@
     const current = dayOverrides[day];
     if (!current) return;
     const updated: DayOverride = { ...current };
-    delete updated.limitMinutes;
+    delete updated.limitSeconds;
     const newOverrides = { ...dayOverrides };
     if (updated.resetTime === undefined) {
       delete newOverrides[day];
@@ -71,7 +75,7 @@
   }
 
   function enableLimitOverride(day: DayOfWeek) {
-    setLimitOverride(day, defaultLimitMinutes);
+    setLimitOverride(day, defaultLimitSeconds);
   }
 
   function setResetOverride(day: DayOfWeek, time: string) {
@@ -100,12 +104,20 @@
 
   function handleLimitHoursChange(day: DayOfWeek, newHours: number) {
     const currentMins = getLimitMins(day);
-    setLimitOverride(day, newHours * 60 + currentMins);
+    const currentSecs = getLimitSecs(day);
+    setLimitOverride(day, newHours * 3600 + currentMins * 60 + currentSecs);
   }
 
   function handleLimitMinsChange(day: DayOfWeek, newMins: number) {
     const currentHours = getLimitHours(day);
-    setLimitOverride(day, currentHours * 60 + newMins);
+    const currentSecs = getLimitSecs(day);
+    setLimitOverride(day, currentHours * 3600 + newMins * 60 + currentSecs);
+  }
+
+  function handleLimitSecsChange(day: DayOfWeek, newSecs: number) {
+    const currentHours = getLimitHours(day);
+    const currentMins = getLimitMins(day);
+    setLimitOverride(day, currentHours * 3600 + currentMins * 60 + newSecs);
   }
 </script>
 
@@ -139,7 +151,7 @@
       <div class="flex items-center gap-1 min-w-0" role="gridcell">
         {#if locked}
           <span class="text-sm text-amber-700 dark:text-amber-400 font-medium">
-            {formatLimitMinutes(getLimitMinutes(day))}
+            {formatLimitSeconds(getLimitTotalSeconds(day))}
           </span>
           <span class="text-xs text-amber-500 dark:text-amber-500">(locked)</span>
         {:else if limitSet}
@@ -167,6 +179,18 @@
                    focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
           />
           <span class="text-xs text-gray-400 dark:text-gray-500">m</span>
+          <label class="sr-only" for="limit-s-{day}">Seconds for {getDayShortName(day)}</label>
+          <input
+            id="limit-s-{day}"
+            type="number"
+            value={getLimitSecs(day)}
+            min="0"
+            max="59"
+            onchange={(e) => handleLimitSecsChange(day, parseInt((e.target as HTMLInputElement).value) || 0)}
+            class="w-14 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-1.5 py-1 text-sm text-center
+                   focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+          />
+          <span class="text-xs text-gray-400 dark:text-gray-500">s</span>
           <button
             type="button"
             onclick={() => clearLimitOverride(day)}
@@ -181,7 +205,7 @@
             class="text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30
                    px-2 py-1 rounded transition-colors truncate"
           >
-            Default <span class="text-gray-400 dark:text-gray-500">({formatLimitMinutes(defaultLimitMinutes)})</span>
+            Default <span class="text-gray-400 dark:text-gray-500">({formatLimitSeconds(defaultLimitSeconds)})</span>
           </button>
         {/if}
       </div>

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { DomainConfig } from '$lib/types';
-  import { formatLimitMinutes } from '$lib/utils';
+  import { formatLimitSeconds } from '$lib/utils';
 
   interface Props {
     config: DomainConfig;
@@ -29,7 +29,7 @@
   >
     <span class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{config.domain}</span>
     <span class="text-xs text-gray-500 dark:text-gray-400">
-      {formatLimitMinutes(config.dailyLimitMinutes)}/day
+      {formatLimitSeconds(config.dailyLimitSeconds)}/day
       {#if !config.enabled}
         <span class="text-gray-400 dark:text-gray-500"> &middot; Disabled</span>
       {/if}

@@ -18,17 +18,17 @@ export const DEFAULT_STORAGE: StorageSchema = {
   settings: { ...DEFAULT_SETTINGS },
 };
 
-/** Default pause allowance in minutes for new domains */
-export const DEFAULT_PAUSE_ALLOWANCE_MINUTES = 5;
+/** Default pause allowance in seconds for new domains (5 minutes) */
+export const DEFAULT_PAUSE_ALLOWANCE_SECONDS = 300;
 
-/** Default daily limit in minutes for new domains */
-export const DEFAULT_DAILY_LIMIT_MINUTES = 60;
+/** Default daily limit in seconds for new domains (1 hour) */
+export const DEFAULT_DAILY_LIMIT_SECONDS = 3600;
 
-/** Minimum configurable limit in minutes */
-export const MIN_LIMIT_MINUTES = 1;
+/** Minimum configurable limit in seconds (1 minute) */
+export const MIN_LIMIT_SECONDS = 60;
 
-/** Maximum configurable limit in minutes (24 hours) */
-export const MAX_LIMIT_MINUTES = 1440;
+/** Maximum configurable limit in seconds (24 hours) */
+export const MAX_LIMIT_SECONDS = 86400;
 
 /** Idle detection threshold in seconds */
 export const IDLE_THRESHOLD_SECONDS = 60;

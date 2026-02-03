@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { DaySummary } from '../dashboard-utils';
-  import { formatTimeRemaining, formatLimitMinutes, getUsagePercent, getProgressColor } from '$lib/utils';
+  import { formatTimeRemaining, formatLimitSeconds, getUsagePercent, getProgressColor } from '$lib/utils';
 
   interface Props {
     today: DaySummary | null;
@@ -35,9 +35,9 @@
   {:else}
     <div class="grid gap-3">
       {#each today.domains as domain (domain.domain)}
-        {@const percent = getUsagePercent(domain.timeSpentSeconds, domain.limitMinutes)}
-        {@const color = getProgressColor(domain.timeSpentSeconds, domain.limitMinutes)}
-        {@const remaining = Math.max(0, domain.limitMinutes * 60 - domain.timeSpentSeconds)}
+        {@const percent = getUsagePercent(domain.timeSpentSeconds, domain.limitSeconds)}
+        {@const color = getProgressColor(domain.timeSpentSeconds, domain.limitSeconds)}
+        {@const remaining = Math.max(0, domain.limitSeconds - domain.timeSpentSeconds)}
 
         <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
           <div class="flex items-center justify-between mb-2">
@@ -48,7 +48,7 @@
               {/if}
             </div>
             <span class="text-sm text-gray-500 dark:text-gray-400">
-              {formatTimeRemaining(domain.timeSpentSeconds)} / {formatLimitMinutes(domain.limitMinutes)}
+              {formatTimeRemaining(domain.timeSpentSeconds)} / {formatLimitSeconds(domain.limitSeconds)}
             </span>
           </div>
 

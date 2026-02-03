@@ -197,7 +197,7 @@ export async function getOrCreateDomainUsage(
       visitCount: 0,
       sessions: [],
       pausedSeconds: 0,
-      limitMinutes: effectiveLimit,
+      limitSeconds: effectiveLimit,
       resetTime: effectiveResetTime,
       notifications: {
         tenPercent: false,

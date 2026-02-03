@@ -198,7 +198,7 @@ async function startTracking(domain: string, reason: 'focused' | 'audible'): Pro
   });
 
   // Schedule threshold alarms
-  await scheduleTrackingAlarms(domain, usage.timeSpentSeconds, usage.limitMinutes, usage.notifications);
+  await scheduleTrackingAlarms(domain, usage.timeSpentSeconds, usage.limitSeconds, usage.notifications);
 
   console.log(`[TimeWarden] Started tracking ${domain} (${reason})`);
 }
@@ -290,10 +290,9 @@ async function handleVisitImpl(domain: string): Promise<void> {
 async function scheduleTrackingAlarms(
   domain: string,
   currentTimeSpent: number,
-  limitMinutes: number,
+  limitSeconds: number,
   notifications: { tenPercent: boolean }
 ): Promise<void> {
-  const limitSeconds = limitMinutes * 60;
   const now = Date.now();
 
   // 10% remaining notification (90% used threshold)
@@ -412,23 +411,22 @@ export async function getStatusForDomain(domain: string): Promise<StatusResponse
     timeSpentSeconds += (Date.now() - tracking.startedAt) / 1000;
   }
 
-  const limitMinutes = usage?.limitMinutes
+  const limitSeconds = usage?.limitSeconds
     ?? getEffectiveLimit(config, String(new Date().getDay()) as DayOfWeek);
-  const limitSeconds = limitMinutes * 60;
   const timeRemainingSeconds = Math.max(0, limitSeconds - timeSpentSeconds);
 
   // Compute pause state
   const pauseInfo = getPauseState(
     domain,
     usage?.pausedSeconds ?? 0,
-    config.pauseAllowanceMinutes
+    config.pauseAllowanceSeconds
   );
 
   return {
     domain,
     timeSpentSeconds: Math.floor(timeSpentSeconds),
     timeRemainingSeconds: Math.floor(timeRemainingSeconds),
-    limitMinutes,
+    limitSeconds,
     visitCount: usage?.visitCount ?? 0,
     sessionCount: usage?.sessions.length ?? 0,
     isPaused: pauseInfo.isPaused,
@@ -462,7 +460,7 @@ function defaultStatusResponse(domain: string): StatusResponse {
     domain,
     timeSpentSeconds: 0,
     timeRemainingSeconds: 0,
-    limitMinutes: 0,
+    limitSeconds: 0,
     visitCount: 0,
     sessionCount: 0,
     isPaused: false,
@@ -618,7 +616,7 @@ export async function togglePause(domain: string): Promise<{
   }
 
   const pausedSecondsUsed = usage?.pausedSeconds ?? 0;
-  const allowanceSeconds = config.pauseAllowanceMinutes * 60;
+  const allowanceSeconds = config.pauseAllowanceSeconds;
 
   if (pausedDomains.has(domain)) {
     // Currently paused → RESUME
@@ -724,11 +722,10 @@ export function isPauseEndAlarm(alarmName: string): boolean {
  * Get pause state for a domain.
  * Returns isPaused and remaining pause allowance seconds.
  */
-export function getPauseState(domain: string, pausedSecondsFromStorage: number, allowanceMinutes: number): {
+export function getPauseState(domain: string, pausedSecondsFromStorage: number, allowanceSeconds: number): {
   isPaused: boolean;
   pauseRemainingSeconds: number;
 } {
-  const allowanceSeconds = allowanceMinutes * 60;
   const pauseState = pausedDomains.get(domain);
 
   if (pauseState) {
@@ -778,8 +775,8 @@ export async function updateBadge(): Promise<void> {
   }
 
   const badgeText = formatBadgeText(status.timeRemainingSeconds, false);
-  const remainingPercent = status.limitMinutes > 0
-    ? (status.timeRemainingSeconds / (status.limitMinutes * 60)) * 100
+  const remainingPercent = status.limitSeconds > 0
+    ? (status.timeRemainingSeconds / status.limitSeconds) * 100
     : 100;
 
   let color: string;

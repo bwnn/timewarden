@@ -7,8 +7,8 @@ export type DayOfWeek = '0' | '1' | '2' | '3' | '4' | '5' | '6';
 
 /** Per-day override for a domain's limit and/or reset time */
 export interface DayOverride {
-  /** Override daily limit for this day in minutes (omit = use domain default) */
-  limitMinutes?: number;
+  /** Override daily limit for this day in seconds (omit = use domain default) */
+  limitSeconds?: number;
   /** Override reset time for this day, "HH:MM" (omit = use domain default) */
   resetTime?: string;
 }
@@ -17,14 +17,14 @@ export interface DayOverride {
 export interface DomainConfig {
   /** Exact hostname, e.g. "youtube.com" */
   domain: string;
-  /** Default daily limit in minutes */
-  dailyLimitMinutes: number;
+  /** Default daily limit in seconds */
+  dailyLimitSeconds: number;
   /** Whether tracking is active */
   enabled: boolean;
   /** ISO 8601 timestamp when this domain was added */
   createdAt: string;
-  /** Max pause minutes per day (default: 5) */
-  pauseAllowanceMinutes: number;
+  /** Max pause seconds per day (default: 300) */
+  pauseAllowanceSeconds: number;
   /** Domain-level default reset time, "HH:MM" (null = use global) */
   resetTime: string | null;
   /** Per-day config overrides */
@@ -57,8 +57,8 @@ export interface DomainUsage {
   sessions: Session[];
   /** Total paused time in seconds */
   pausedSeconds: number;
-  /** IMMUTABLE snapshot of the limit for this period */
-  limitMinutes: number;
+  /** IMMUTABLE snapshot of the limit for this period in seconds */
+  limitSeconds: number;
   /** IMMUTABLE snapshot of the reset time for this period */
   resetTime: string;
   /** Which threshold notifications have fired */
@@ -148,7 +148,7 @@ export type Message =
 export interface BlockedStatusResponse {
   domain: string;
   timeSpentSeconds: number;
-  limitMinutes: number;
+  limitSeconds: number;
   visitCount: number;
   sessionCount: number;
   longestSessionSeconds: number;
@@ -160,7 +160,7 @@ export interface StatusResponse {
   domain: string;
   timeSpentSeconds: number;
   timeRemainingSeconds: number;
-  limitMinutes: number;
+  limitSeconds: number;
   visitCount: number;
   sessionCount: number;
   isPaused: boolean;

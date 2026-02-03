@@ -43,13 +43,15 @@ export function formatTimePrecise(totalSeconds: number): string {
 }
 
 /**
- * Format minutes into a human-readable limit string.
- * - >= 60: "2h 30m" or "2h"
- * - < 60: "30m"
+ * Format seconds into a human-readable limit string.
+ * - >= 3600: "2h 30m" or "2h"
+ * - >= 60: "30m"
+ * - < 60: "30s"
  */
-export function formatLimitMinutes(minutes: number): string {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
+export function formatLimitSeconds(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600);
+  const mins = Math.floor((totalSeconds % 3600) / 60);
+  const secs = totalSeconds % 60;
 
   if (hours > 0 && mins > 0) {
     return `${hours}h ${mins}m`;
@@ -57,7 +59,10 @@ export function formatLimitMinutes(minutes: number): string {
   if (hours > 0) {
     return `${hours}h`;
   }
-  return `${mins}m`;
+  if (mins > 0) {
+    return `${mins}m`;
+  }
+  return `${secs}s`;
 }
 
 /**
@@ -167,14 +172,14 @@ export function getEffectiveResetTime(
 }
 
 /**
- * Get the effective daily limit for a domain on a given day.
+ * Get the effective daily limit in seconds for a domain on a given day.
  * Resolution hierarchy:
- * 1. domain.dayOverrides[day].limitMinutes
- * 2. domain.dailyLimitMinutes
+ * 1. domain.dayOverrides[day].limitSeconds
+ * 2. domain.dailyLimitSeconds
  */
 export function getEffectiveLimit(config: DomainConfig, day: DayOfWeek): number {
-  return config.dayOverrides[day]?.limitMinutes
-    ?? config.dailyLimitMinutes;
+  return config.dayOverrides[day]?.limitSeconds
+    ?? config.dailyLimitSeconds;
 }
 
 /**
@@ -215,8 +220,7 @@ export function getCurrentPeriodDate(
 /**
  * Calculate progress percentage (0-100) of time used.
  */
-export function getUsagePercent(timeSpentSeconds: number, limitMinutes: number): number {
-  const limitSeconds = limitMinutes * 60;
+export function getUsagePercent(timeSpentSeconds: number, limitSeconds: number): number {
   if (limitSeconds <= 0) return 100;
   return Math.min(100, (timeSpentSeconds / limitSeconds) * 100);
 }
@@ -227,8 +231,8 @@ export function getUsagePercent(timeSpentSeconds: number, limitMinutes: number):
  * - yellow: 10-25% remaining
  * - red: <10% remaining
  */
-export function getProgressColor(timeSpentSeconds: number, limitMinutes: number): 'green' | 'yellow' | 'red' {
-  const usedPercent = getUsagePercent(timeSpentSeconds, limitMinutes);
+export function getProgressColor(timeSpentSeconds: number, limitSeconds: number): 'green' | 'yellow' | 'red' {
+  const usedPercent = getUsagePercent(timeSpentSeconds, limitSeconds);
   const remainingPercent = 100 - usedPercent;
 
   if (remainingPercent > 25) return 'green';

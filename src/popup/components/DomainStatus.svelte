@@ -48,7 +48,7 @@
   </div>
 
   <!-- Progress bar -->
-  <ProgressBar timeSpentSeconds={status.timeSpentSeconds} limitMinutes={status.limitMinutes} />
+  <ProgressBar timeSpentSeconds={status.timeSpentSeconds} limitSeconds={status.limitSeconds} />
 
   <!-- Stats row + pause button -->
   <div class="flex items-center justify-between">

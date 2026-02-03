@@ -2,10 +2,10 @@
   import type { DomainConfig } from '$lib/types';
   import { isValidDomain, normalizeDomain } from '$lib/domain-matcher';
   import {
-    DEFAULT_DAILY_LIMIT_MINUTES,
-    DEFAULT_PAUSE_ALLOWANCE_MINUTES,
-    MIN_LIMIT_MINUTES,
-    MAX_LIMIT_MINUTES,
+    DEFAULT_DAILY_LIMIT_SECONDS,
+    DEFAULT_PAUSE_ALLOWANCE_SECONDS,
+    MIN_LIMIT_SECONDS,
+    MAX_LIMIT_SECONDS,
   } from '$lib/constants';
 
   interface Props {
@@ -17,8 +17,9 @@
   let { existingDomains, onsubmit, oncancel }: Props = $props();
 
   let domainInput = $state('');
-  let hours = $state(Math.floor(DEFAULT_DAILY_LIMIT_MINUTES / 60));
-  let minutes = $state(DEFAULT_DAILY_LIMIT_MINUTES % 60);
+  let hours = $state(Math.floor(DEFAULT_DAILY_LIMIT_SECONDS / 3600));
+  let minutes = $state(Math.floor((DEFAULT_DAILY_LIMIT_SECONDS % 3600) / 60));
+  let seconds = $state(DEFAULT_DAILY_LIMIT_SECONDS % 60);
   let error = $state('');
 
   // Live matching-behavior hint
@@ -54,24 +55,24 @@
       return;
     }
 
-    const totalMinutes = hours * 60 + minutes;
+    const totalSeconds = hours * 3600 + minutes * 60 + seconds;
 
-    if (totalMinutes < MIN_LIMIT_MINUTES) {
-      error = `Limit must be at least ${MIN_LIMIT_MINUTES} minute.`;
+    if (totalSeconds < MIN_LIMIT_SECONDS) {
+      error = `Limit must be at least 1 minute.`;
       return;
     }
 
-    if (totalMinutes > MAX_LIMIT_MINUTES) {
-      error = `Limit cannot exceed 24 hours (${MAX_LIMIT_MINUTES} minutes).`;
+    if (totalSeconds > MAX_LIMIT_SECONDS) {
+      error = `Limit cannot exceed 24 hours.`;
       return;
     }
 
     const config: DomainConfig = {
       domain,
-      dailyLimitMinutes: totalMinutes,
+      dailyLimitSeconds: totalSeconds,
       enabled: true,
       createdAt: new Date().toISOString(),
-      pauseAllowanceMinutes: DEFAULT_PAUSE_ALLOWANCE_MINUTES,
+      pauseAllowanceSeconds: DEFAULT_PAUSE_ALLOWANCE_SECONDS,
       resetTime: null,
       dayOverrides: {},
     };
@@ -119,7 +120,7 @@
           class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
                  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
         />
-        <span class="text-sm text-gray-500 dark:text-gray-400">hours</span>
+        <span class="text-sm text-gray-500 dark:text-gray-400">h</span>
         <label class="sr-only" for="add-limit-minutes">Minutes</label>
         <input
           id="add-limit-minutes"
@@ -130,7 +131,18 @@
           class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
                  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
         />
-        <span class="text-sm text-gray-500 dark:text-gray-400">minutes</span>
+        <span class="text-sm text-gray-500 dark:text-gray-400">m</span>
+        <label class="sr-only" for="add-limit-seconds">Seconds</label>
+        <input
+          id="add-limit-seconds"
+          type="number"
+          bind:value={seconds}
+          min="0"
+          max="59"
+          class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
+                 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+        />
+        <span class="text-sm text-gray-500 dark:text-gray-400">s</span>
       </div>
     </fieldset>
 
