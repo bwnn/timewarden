@@ -18,6 +18,7 @@
   import DomainCard from './components/DomainCard.svelte';
   import DomainConfigEditor from './components/DomainConfigEditor.svelte';
   import ConfirmDialog from './components/ConfirmDialog.svelte';
+  import DestructiveConfirmDialog from './components/DestructiveConfirmDialog.svelte';
 
   // -- State ---------------------------------------------------------
 
@@ -38,6 +39,8 @@
   let selectedDomain = $state<string | null>(null);
   let showDeleteConfirm = $state(false);
   let deletingDomain = $state<string | null>(null);
+  let showDestructiveToggle = $state(false);
+  let destructiveToggleDomain = $state<string | null>(null);
 
   // -- Derived -------------------------------------------------------
 
@@ -59,6 +62,20 @@
     const parts = periodDate.split('-').map(Number);
     const periodDateObj = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
     return String(periodDateObj.getDay()) as DayOfWeek;
+  });
+
+  // Session-active lock: checks if a DomainUsage entry exists for the current period
+  function isDomainLocked(domain: string): boolean {
+    const config = domains.find((d) => d.domain === domain);
+    if (!config) return false;
+    const periodDate = getCurrentPeriodDate(config, settings.resetTime);
+    const daily = usageData.find((u) => u.date === periodDate);
+    return daily?.domains.some((d) => d.domain === domain) ?? false;
+  }
+
+  let isEditLocked = $derived.by((): boolean => {
+    if (!selectedDomain) return false;
+    return isDomainLocked(selectedDomain);
   });
 
   // -- Data Loading --------------------------------------------------
@@ -121,6 +138,16 @@
   }
 
   async function handleToggleDomain(domain: string, enabled: boolean) {
+    // If disabling a domain with an active session, require destructive confirmation
+    if (!enabled && isDomainLocked(domain)) {
+      destructiveToggleDomain = domain;
+      showDestructiveToggle = true;
+      return;
+    }
+    await doToggleDomain(domain, enabled);
+  }
+
+  async function doToggleDomain(domain: string, enabled: boolean) {
     const config = domains.find((d) => d.domain === domain);
     if (!config) return;
 
@@ -131,6 +158,14 @@
     } catch (e) {
       console.error('[TimeWarden] Failed to toggle domain:', e);
     }
+  }
+
+  function handleDestructiveToggleConfirm() {
+    if (destructiveToggleDomain) {
+      doToggleDomain(destructiveToggleDomain, false);
+    }
+    showDestructiveToggle = false;
+    destructiveToggleDomain = null;
   }
 
   // -- Handlers: Add / Save / Delete ---------------------------------
@@ -259,6 +294,7 @@
                       initialConfig={config}
                       globalResetTime={settings.resetTime}
                       {lockedDay}
+                      isLocked={isEditLocked}
                       onsave={handleSaveEdit}
                       oncancel={() => { selectedDomain = null; }}
                     />
@@ -281,4 +317,15 @@
   confirmLabel="Delete"
   onconfirm={handleDeleteDomain}
   oncancel={() => { showDeleteConfirm = false; deletingDomain = null; }}
+/>
+
+<!-- Destructive Toggle Confirmation Dialog -->
+<DestructiveConfirmDialog
+  open={showDestructiveToggle}
+  title="Disable Active Domain"
+  message={`"${destructiveToggleDomain}" has active usage this period. Disabling it will stop all tracking immediately.`}
+  confirmText={destructiveToggleDomain ?? ''}
+  confirmLabel="Disable"
+  onconfirm={handleDestructiveToggleConfirm}
+  oncancel={() => { showDestructiveToggle = false; destructiveToggleDomain = null; }}
 />

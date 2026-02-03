@@ -17,6 +17,7 @@
     existingDomains?: string[];
     globalResetTime: string;
     lockedDay?: DayOfWeek | null;
+    isLocked?: boolean;
     onsave: (config: DomainConfig) => Promise<void>;
     oncancel: () => void;
   }
@@ -27,6 +28,7 @@
     existingDomains = [],
     globalResetTime,
     lockedDay = null,
+    isLocked = false,
     onsave,
     oncancel,
   }: Props = $props();
@@ -196,6 +198,18 @@
     </div>
   {/if}
 
+  <!-- Locked banner -->
+  {#if isLocked && mode === 'edit'}
+    <div class="mx-6 mt-6 flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg" role="status">
+      <svg class="w-5 h-5 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+      </svg>
+      <p class="text-sm text-amber-800 dark:text-amber-300">
+        Settings are locked because this site has been visited during the current period. Changes will take effect after the next reset.
+      </p>
+    </div>
+  {/if}
+
   <div class="p-6 space-y-6">
     <!-- Domain Input (add mode only) -->
     {#if mode === 'add'}
@@ -232,6 +246,7 @@
           value={limitHours}
           min="0"
           max="24"
+          disabled={isLocked}
           onchange={(e) =>
             handleLimitChange(
               parseInt((e.target as HTMLInputElement).value) || 0,
@@ -239,7 +254,8 @@
               limitSeconds
             )}
           class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
-                 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none
+                 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-500 disabled:cursor-not-allowed"
         />
         <span class="text-sm text-gray-500 dark:text-gray-400">h</span>
         <label class="sr-only" for="limit-minutes">Minutes</label>
@@ -249,6 +265,7 @@
           value={limitMinutes}
           min="0"
           max="59"
+          disabled={isLocked}
           onchange={(e) =>
             handleLimitChange(
               limitHours,
@@ -256,7 +273,8 @@
               limitSeconds
             )}
           class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
-                 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none
+                 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-500 disabled:cursor-not-allowed"
         />
         <span class="text-sm text-gray-500 dark:text-gray-400">m</span>
         <label class="sr-only" for="limit-seconds">Seconds</label>
@@ -266,6 +284,7 @@
           value={limitSeconds}
           min="0"
           max="59"
+          disabled={isLocked}
           onchange={(e) =>
             handleLimitChange(
               limitHours,
@@ -273,7 +292,8 @@
               parseInt((e.target as HTMLInputElement).value) || 0
             )}
           class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
-                 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none
+                 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-500 disabled:cursor-not-allowed"
         />
         <span class="text-sm text-gray-500 dark:text-gray-400">s</span>
         <span class="text-xs text-gray-400 dark:text-gray-500 ml-2">
@@ -303,29 +323,31 @@
     {#if showAdvanced}
       <div class="space-y-6">
         <!-- Domain Reset Time -->
-        <fieldset>
+        <fieldset disabled={isLocked}>
           <legend class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Reset Time</legend>
           <div class="space-y-2">
-            <label class="flex items-center gap-2 cursor-pointer">
+            <label class="flex items-center gap-2 {isLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}">
               <input
                 type="radio"
                 name="reset-mode-{mode}"
                 checked={!useCustomReset}
+                disabled={isLocked}
                 onchange={() => handleResetToggle(false)}
-                class="text-blue-600 focus:ring-blue-500"
+                class="text-blue-600 focus:ring-blue-500 disabled:opacity-50"
               />
               <span class="text-sm text-gray-700 dark:text-gray-300">
                 Use global default
                 <span class="text-gray-400 dark:text-gray-500">({globalResetTime})</span>
               </span>
             </label>
-            <label class="flex items-center gap-2 cursor-pointer">
+            <label class="flex items-center gap-2 {isLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}">
               <input
                 type="radio"
                 name="reset-mode-{mode}"
                 checked={useCustomReset}
+                disabled={isLocked}
                 onchange={() => handleResetToggle(true)}
-                class="text-blue-600 focus:ring-blue-500"
+                class="text-blue-600 focus:ring-blue-500 disabled:opacity-50"
               />
               <span class="text-sm text-gray-700 dark:text-gray-300">Custom reset time</span>
             </label>
@@ -333,6 +355,7 @@
               <div class="ml-6 w-28">
                 <TimePicker
                   value={config.resetTime ?? globalResetTime}
+                  disabled={isLocked}
                   onchange={handleResetChange}
                 />
               </div>
@@ -350,12 +373,14 @@
               value={Math.floor(config.pauseAllowanceSeconds / 60)}
               min="0"
               max="60"
+              disabled={isLocked}
               onchange={(e) =>
                 handlePauseChange(
                   (parseInt((e.target as HTMLInputElement).value) || 0) * 60
                 )}
               class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
-                     focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                     focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none
+                     disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-500 disabled:cursor-not-allowed"
             />
             <span class="text-sm text-gray-500 dark:text-gray-400">minutes per day</span>
           </div>
@@ -373,6 +398,7 @@
             defaultLimitSeconds={config.dailyLimitSeconds}
             defaultResetTime={effectiveResetTime}
             {lockedDay}
+            allLocked={isLocked}
             onchange={handleDayOverridesChange}
           />
         </div>
