@@ -73,11 +73,6 @@
     return daily?.domains.some((d) => d.domain === domain) ?? false;
   }
 
-  let isEditLocked = $derived.by((): boolean => {
-    if (!selectedDomain) return false;
-    return isDomainLocked(selectedDomain);
-  });
-
   // -- Data Loading --------------------------------------------------
 
   onMount(async () => {
@@ -294,7 +289,6 @@
                       initialConfig={config}
                       globalResetTime={settings.resetTime}
                       {lockedDay}
-                      isLocked={isEditLocked}
                       onsave={handleSaveEdit}
                       oncancel={() => { selectedDomain = null; }}
                     />
