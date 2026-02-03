@@ -40,7 +40,7 @@
       resetTime,
       notificationsEnabled,
       theme,
-      notificationRules,
+      notificationRules: $state.snapshot(notificationRules) as NotificationRule[],
     });
     saving = false;
     saved = true;
