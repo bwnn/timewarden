@@ -301,7 +301,7 @@
 
     <!-- Advanced Options Section -->
     {#if showAdvanced}
-      <div class="space-y-6 pl-2 border-l-2 border-gray-100 dark:border-gray-700">
+      <div class="space-y-6">
         <!-- Domain Reset Time -->
         <fieldset>
           <legend class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Reset Time</legend>
