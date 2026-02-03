@@ -398,7 +398,6 @@
             defaultLimitSeconds={config.dailyLimitSeconds}
             defaultResetTime={effectiveResetTime}
             {lockedDay}
-            allLocked={isLocked}
             onchange={handleDayOverridesChange}
           />
         </div>

@@ -9,11 +9,10 @@
     defaultLimitSeconds: number;
     defaultResetTime: string;
     lockedDay: DayOfWeek | null;
-    allLocked?: boolean;
     onchange: (overrides: Partial<Record<DayOfWeek, DayOverride>>) => void;
   }
 
-  let { dayOverrides, defaultLimitSeconds, defaultResetTime, lockedDay, allLocked = false, onchange }: Props = $props();
+  let { dayOverrides, defaultLimitSeconds, defaultResetTime, lockedDay, onchange }: Props = $props();
 
   // Days ordered Mon-Sun
   const days: DayOfWeek[] = ['1', '2', '3', '4', '5', '6', '0'];
@@ -49,7 +48,7 @@
   }
 
   function isLocked(day: DayOfWeek): boolean {
-    return allLocked || day === lockedDay;
+    return day === lockedDay;
   }
 
   // -- Mutations (emit new overrides to parent) ------------------
