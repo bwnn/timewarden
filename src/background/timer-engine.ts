@@ -34,7 +34,7 @@ import {
   getDomainConfigs,
 } from './storage-manager';
 import { notifyTenPercentRemaining } from './notification-manager';
-import { startGracePeriod, isDomainInGracePeriod } from './block-manager';
+import { startGracePeriod, isDomainInGracePeriod, getGraceRemainingSeconds } from './block-manager';
 import { formatBadgeText } from '$lib/utils';
 
 // ============================================================
@@ -434,6 +434,8 @@ export async function getStatusForDomain(domain: string): Promise<StatusResponse
     isBlocked: usage?.blocked ?? false,
     isTracking,
     trackingReason: tracking?.reason ?? null,
+    isInGracePeriod: isDomainInGracePeriod(domain),
+    graceRemainingSeconds: getGraceRemainingSeconds(domain),
   };
 }
 
@@ -468,6 +470,8 @@ function defaultStatusResponse(domain: string): StatusResponse {
     isBlocked: false,
     isTracking: false,
     trackingReason: null,
+    isInGracePeriod: false,
+    graceRemainingSeconds: 0,
   };
 }
 
@@ -768,8 +772,19 @@ export async function updateBadge(): Promise<void> {
     return;
   }
 
+  // Grace period takes priority over paused (grace = urgent)
+  if (status.isInGracePeriod) {
+    const graceText = status.graceRemainingSeconds > 0
+      ? String(status.graceRemainingSeconds)
+      : '0';
+    await browser.action.setBadgeText({ text: graceText });
+    await browser.action.setBadgeBackgroundColor({ color: '#EF4444' }); // red
+    return;
+  }
+
   if (status.isPaused) {
-    await browser.action.setBadgeText({ text: '||' });
+    const pauseText = formatBadgeText(status.pauseRemainingSeconds, false);
+    await browser.action.setBadgeText({ text: pauseText });
     await browser.action.setBadgeBackgroundColor({ color: '#F59E0B' }); // amber
     return;
   }

@@ -19,6 +19,9 @@
     if (s.isBlocked) {
       return { text: 'BLOCKED', colorClass: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' };
     }
+    if (s.isInGracePeriod) {
+      return { text: 'GRACE', colorClass: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' };
+    }
     if (s.isPaused) {
       return { text: 'PAUSED', colorClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' };
     }

@@ -168,4 +168,8 @@ export interface StatusResponse {
   isBlocked: boolean;
   isTracking: boolean;
   trackingReason: 'focused' | 'audible' | null;
+  /** Whether this domain is currently in its grace period (limit reached, not yet blocked) */
+  isInGracePeriod: boolean;
+  /** Seconds remaining in the grace period (0 if not in grace) */
+  graceRemainingSeconds: number;
 }
