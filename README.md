@@ -97,6 +97,7 @@ The built extension is output to the `dist/` directory.
 |---------|-------------|
 | `pnpm run dev` | Build in watch mode for development |
 | `pnpm run build` | Production build to `dist/` |
+| `pnpm run bundle:firefox` | Build and package into an unsigned `.zip` for Firefox |
 | `pnpm run typecheck` | Run TypeScript type checking |
 | `pnpm run svelte-check` | Run Svelte-specific validation |
 
@@ -148,13 +149,48 @@ The background service worker is split into six focused modules:
 
 UI pages communicate with the background via typed messages (`browser.runtime.sendMessage`). The popup polls for live status updates every second.
 
+## Releases
+
+Signed Firefox `.xpi` files are available on the [GitHub Releases](https://github.com/bwnn/timewarden/releases) page. These can be installed directly in Firefox without any developer settings.
+
+### Setup (one-time)
+
+The release workflow signs the extension via the [AMO API](https://addons-server.readthedocs.io/en/latest/topics/api/signing.html), which requires API credentials:
+
+1. Log in to [addons.mozilla.org](https://addons.mozilla.org/)
+2. Go to **Tools > Manage API Keys** (or visit https://addons.mozilla.org/developers/addon/api/key/)
+3. Generate credentials -- you'll get a **JWT issuer** and **JWT secret**
+4. Add them as repository secrets in GitHub (**Settings > Secrets and variables > Actions**):
+   - `AMO_JWT_ISSUER` -- the JWT issuer (API key)
+   - `AMO_JWT_SECRET` -- the JWT secret
+
+### Creating a release
+
+Push a version tag:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The GitHub Actions workflow will build the extension, sign it via AMO as an unlisted extension, and attach the signed `.xpi` to a new release.
+
+### Local bundling (unsigned)
+
+For development and testing via `about:debugging`:
+
+```bash
+pnpm run bundle:firefox
+# Output: web-ext-artifacts/timewarden-<version>.zip
+```
+
 ## Known Limitations
 
 - **No data migration** -- upgrading from an older storage format (minutes-based) requires clearing extension data
 - **Chrome compatibility** -- uses `browser.*` namespace throughout; Chrome support is untested and may require a polyfill
 - **Badge staleness** -- the toolbar badge can be up to 30 seconds stale between tab events
 - **No keyboard shortcut** for pause/resume
-- **Not published** -- the extension has not been submitted to any extension store
+- **Not published** -- the extension is not on any extension store; install via GitHub Releases or load from source
 
 ## License
 

@@ -8,7 +8,8 @@
     "dev": "vite build --watch",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
-    "svelte-check": "svelte-check" 
+    "svelte-check": "svelte-check",
+    "bundle:firefox": "pnpm run build && web-ext build --source-dir dist --artifacts-dir web-ext-artifacts --overwrite-dest"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
@@ -18,6 +19,7 @@
     "svelte-check": "^4.3.6",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.0",
-    "vite": "^6.0.0"
+    "vite": "^6.0.0",
+    "web-ext": "^9.2.0"
   }
 }

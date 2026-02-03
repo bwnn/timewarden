@@ -3,6 +3,12 @@
   "name": "TimeWarden",
   "version": "1.0.0",
   "description": "Enforce daily time limits on websites. Take control of your browsing habits.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "timewarden@bwnn",
+      "strict_min_version": "109.0"
+    }
+  },
   "permissions": [
     "tabs",
     "storage",
