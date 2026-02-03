@@ -1,5 +1,5 @@
 <script lang="ts">
-  interface Props {
+interface Props {
     open: boolean;
     title: string;
     message: string;
@@ -7,9 +7,9 @@
     confirmLabel?: string;
     onconfirm: () => void;
     oncancel: () => void;
-  }
+}
 
-  let {
+let {
     open,
     title,
     message,
@@ -17,26 +17,26 @@
     confirmLabel = 'Confirm',
     onconfirm,
     oncancel,
-  }: Props = $props();
+}: Props = $props();
 
-  let inputValue = $state('');
+let inputValue = $state('');
 
-  let canConfirm = $derived(inputValue === confirmText);
+let canConfirm = $derived(inputValue === confirmText);
 
-  // Reset input when dialog opens/closes
-  $effect(() => {
+// Reset input when dialog opens/closes
+$effect(() => {
     if (open) {
-      inputValue = '';
+        inputValue = '';
     }
-  });
+});
 
-  function handleKeydown(e: KeyboardEvent) {
+function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter' && canConfirm) {
-      onconfirm();
+        onconfirm();
     } else if (e.key === 'Escape') {
-      oncancel();
+        oncancel();
     }
-  }
+}
 </script>
 
 {#if open}

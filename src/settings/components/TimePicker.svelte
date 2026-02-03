@@ -1,11 +1,11 @@
 <script lang="ts">
-  interface Props {
+interface Props {
     value: string;
     disabled?: boolean;
     onchange?: (value: string) => void;
-  }
+}
 
-  let { value, disabled = false, onchange }: Props = $props();
+let { value, disabled = false, onchange }: Props = $props();
 </script>
 
 <input

@@ -1,120 +1,120 @@
 <script lang="ts">
-  import type { DaySummary } from '../dashboard-utils';
-  import { getDomainColor, formatCompactTime } from '../dashboard-utils';
+import type { DaySummary } from '../dashboard-utils';
+import { formatCompactTime, getDomainColor } from '../dashboard-utils';
 
-  interface Props {
+interface Props {
     /** Gap-filled day summaries (one per date in range). */
     days: DaySummary[];
     /** All domain names that appear in the data. */
     domains: string[];
-  }
+}
 
-  let { days, domains }: Props = $props();
+let { days, domains }: Props = $props();
 
-  // Chart dimensions
-  const CHART_WIDTH = 800;
-  const CHART_HEIGHT = 280;
-  const PADDING_LEFT = 50;
-  const PADDING_RIGHT = 10;
-  const PADDING_TOP = 10;
-  const PADDING_BOTTOM = 40;
-  const BAR_GAP = 2;
+// Chart dimensions
+const CHART_WIDTH = 800;
+const CHART_HEIGHT = 280;
+const PADDING_LEFT = 50;
+const PADDING_RIGHT = 10;
+const PADDING_TOP = 10;
+const PADDING_BOTTOM = 40;
+const BAR_GAP = 2;
 
-  let plotWidth = $derived(CHART_WIDTH - PADDING_LEFT - PADDING_RIGHT);
-  let plotHeight = $derived(CHART_HEIGHT - PADDING_TOP - PADDING_BOTTOM);
+let plotWidth = $derived(CHART_WIDTH - PADDING_LEFT - PADDING_RIGHT);
+let plotHeight = $derived(CHART_HEIGHT - PADDING_TOP - PADDING_BOTTOM);
 
-  // Compute max total for Y-axis scaling
-  let maxTotal = $derived.by(() => {
+// Compute max total for Y-axis scaling
+let maxTotal = $derived.by(() => {
     let max = 0;
     for (const day of days) {
-      if (day.totalSeconds > max) max = day.totalSeconds;
+        if (day.totalSeconds > max) max = day.totalSeconds;
     }
     // Round up to a nice number (nearest 30 minutes)
     return max > 0 ? Math.ceil(max / 1800) * 1800 : 3600;
-  });
+});
 
-  // Y-axis tick values (aim for ~4-5 ticks)
-  let yTicks = $derived.by(() => {
+// Y-axis tick values (aim for ~4-5 ticks)
+let yTicks = $derived.by(() => {
     const ticks: number[] = [];
     const step = maxTotal / 4;
     for (let i = 0; i <= 4; i++) {
-      ticks.push(Math.round(i * step));
+        ticks.push(Math.round(i * step));
     }
     return ticks;
-  });
+});
 
-  // Bar width
-  let barWidth = $derived(
-    days.length > 0 ? Math.max(4, (plotWidth - BAR_GAP * (days.length - 1)) / days.length) : 20
-  );
+// Bar width
+let barWidth = $derived(
+    days.length > 0 ? Math.max(4, (plotWidth - BAR_GAP * (days.length - 1)) / days.length) : 20,
+);
 
-  // Build bar data
-  interface BarSegment {
+// Build bar data
+interface BarSegment {
     domain: string;
     y: number;
     height: number;
     color: string;
-  }
+}
 
-  interface BarData {
+interface BarData {
     x: number;
     dateLabel: string;
     segments: BarSegment[];
     totalSeconds: number;
-  }
+}
 
-  let bars = $derived.by((): BarData[] => {
+let bars = $derived.by((): BarData[] => {
     return days.map((day, i) => {
-      const x = PADDING_LEFT + i * (barWidth + BAR_GAP);
-      const dateLabel = formatDateLabel(day.date);
+        const x = PADDING_LEFT + i * (barWidth + BAR_GAP);
+        const dateLabel = formatDateLabel(day.date);
 
-      // Build stacked segments from bottom up
-      const segments: BarSegment[] = [];
-      let cumulative = 0;
+        // Build stacked segments from bottom up
+        const segments: BarSegment[] = [];
+        let cumulative = 0;
 
-      for (let di = 0; di < domains.length; di++) {
-        const domainEntry = day.domains.find((d) => d.domain === domains[di]);
-        const seconds = domainEntry?.timeSpentSeconds ?? 0;
-        if (seconds <= 0) continue;
+        for (let di = 0; di < domains.length; di++) {
+            const domainEntry = day.domains.find((d) => d.domain === domains[di]);
+            const seconds = domainEntry?.timeSpentSeconds ?? 0;
+            if (seconds <= 0) continue;
 
-        const segHeight = (seconds / maxTotal) * plotHeight;
-        const y = PADDING_TOP + plotHeight - cumulative - segHeight;
-        segments.push({
-          domain: domains[di],
-          y,
-          height: segHeight,
-          color: getDomainColor(domains[di], di),
-        });
-        cumulative += segHeight;
-      }
+            const segHeight = (seconds / maxTotal) * plotHeight;
+            const y = PADDING_TOP + plotHeight - cumulative - segHeight;
+            segments.push({
+                domain: domains[di],
+                y,
+                height: segHeight,
+                color: getDomainColor(domains[di], di),
+            });
+            cumulative += segHeight;
+        }
 
-      return { x, dateLabel, segments, totalSeconds: day.totalSeconds };
+        return { x, dateLabel, segments, totalSeconds: day.totalSeconds };
     });
-  });
+});
 
-  function formatDateLabel(dateStr: string): string {
+function formatDateLabel(dateStr: string): string {
     const [, month, day] = dateStr.split('-');
-    return `${parseInt(month)}/${parseInt(day)}`;
-  }
+    return `${parseInt(month, 10)}/${parseInt(day, 10)}`;
+}
 
-  // Tooltip state
-  let hoveredBar = $state<BarData | null>(null);
-  let tooltipX = $state(0);
-  let tooltipY = $state(0);
+// Tooltip state
+let hoveredBar = $state<BarData | null>(null);
+let tooltipX = $state(0);
+let tooltipY = $state(0);
 
-  function handleBarEnter(bar: BarData, event: MouseEvent) {
+function handleBarEnter(bar: BarData, event: MouseEvent) {
     hoveredBar = bar;
     const svg = (event.target as SVGElement).closest('svg');
     if (svg) {
-      const rect = svg.getBoundingClientRect();
-      tooltipX = event.clientX - rect.left;
-      tooltipY = event.clientY - rect.top - 10;
+        const rect = svg.getBoundingClientRect();
+        tooltipX = event.clientX - rect.left;
+        tooltipY = event.clientY - rect.top - 10;
     }
-  }
+}
 
-  function handleBarLeave() {
+function handleBarLeave() {
     hoveredBar = null;
-  }
+}
 </script>
 
 <section>

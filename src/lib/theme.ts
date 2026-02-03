@@ -15,17 +15,17 @@ import type { GlobalSettings } from './types';
 
 /** Apply a theme setting to the document root. */
 export function applyTheme(theme: GlobalSettings['theme']): void {
-  const root = document.documentElement;
+    const root = document.documentElement;
 
-  if (theme === 'dark') {
-    root.classList.add('dark');
-  } else if (theme === 'light') {
-    root.classList.remove('dark');
-  } else {
-    // 'system' — follow OS preference
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    root.classList.toggle('dark', prefersDark);
-  }
+    if (theme === 'dark') {
+        root.classList.add('dark');
+    } else if (theme === 'light') {
+        root.classList.remove('dark');
+    } else {
+        // 'system' — follow OS preference
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        root.classList.toggle('dark', prefersDark);
+    }
 }
 
 /**
@@ -36,24 +36,24 @@ export function applyTheme(theme: GlobalSettings['theme']): void {
  * Returns a cleanup function to remove the media query listener.
  */
 export function initTheme(settingsTheme?: GlobalSettings['theme']): () => void {
-  const theme = settingsTheme ?? 'system';
-  applyTheme(theme);
+    const theme = settingsTheme ?? 'system';
+    applyTheme(theme);
 
-  // Listen for OS preference changes
-  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-  let currentTheme = theme;
+    // Listen for OS preference changes
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const currentTheme = theme;
 
-  function handleChange(): void {
-    if (currentTheme === 'system') {
-      applyTheme('system');
+    function handleChange(): void {
+        if (currentTheme === 'system') {
+            applyTheme('system');
+        }
     }
-  }
 
-  mediaQuery.addEventListener('change', handleChange);
+    mediaQuery.addEventListener('change', handleChange);
 
-  return () => {
-    mediaQuery.removeEventListener('change', handleChange);
-  };
+    return () => {
+        mediaQuery.removeEventListener('change', handleChange);
+    };
 }
 
 /**
@@ -61,5 +61,5 @@ export function initTheme(settingsTheme?: GlobalSettings['theme']): () => void {
  * Used when the user changes the theme in settings.
  */
 export function setTheme(theme: GlobalSettings['theme']): void {
-  applyTheme(theme);
+    applyTheme(theme);
 }

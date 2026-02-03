@@ -1,137 +1,137 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
-  import type { StatusResponse } from '$lib/types';
-  import { getAllStatus, togglePause, getSettings } from '$lib/messaging';
-  import { extractHostname } from '$lib/domain-matcher';
-  import { initTheme } from '$lib/theme';
-  import DomainStatus from './components/DomainStatus.svelte';
-  import DomainList from './components/DomainList.svelte';
+import { onDestroy, onMount } from 'svelte';
+import { extractHostname } from '$lib/domain-matcher';
+import { getAllStatus, getSettings, togglePause } from '$lib/messaging';
+import { initTheme } from '$lib/theme';
+import type { StatusResponse } from '$lib/types';
+import DomainList from './components/DomainList.svelte';
+import DomainStatus from './components/DomainStatus.svelte';
 
-  let allStatuses: StatusResponse[] = $state([]);
-  let currentDomain: string | null = $state(null);
-  let currentStatus: StatusResponse | null = $state(null);
-  let loading = $state(true);
-  let error: string | null = $state(null);
+let allStatuses: StatusResponse[] = $state([]);
+let currentDomain: string | null = $state(null);
+let currentStatus: StatusResponse | null = $state(null);
+let loading = $state(true);
+let error: string | null = $state(null);
 
-  /** Polling interval handle */
-  let pollInterval: ReturnType<typeof setInterval> | null = null;
-  /** Theme cleanup function */
-  let cleanupTheme: (() => void) | null = null;
+/** Polling interval handle */
+let pollInterval: ReturnType<typeof setInterval> | null = null;
+/** Theme cleanup function */
+let cleanupTheme: (() => void) | null = null;
 
-  /**
-   * Detect the active tab's hostname via browser.tabs.query.
-   * The popup always opens on the currently active tab.
-   */
-  async function detectCurrentTab(): Promise<string | null> {
+/**
+ * Detect the active tab's hostname via browser.tabs.query.
+ * The popup always opens on the currently active tab.
+ */
+async function detectCurrentTab(): Promise<string | null> {
     try {
-      const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-      const tab = tabs[0];
-      if (tab?.url) {
-        return extractHostname(tab.url);
-      }
+        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+        const tab = tabs[0];
+        if (tab?.url) {
+            return extractHostname(tab.url);
+        }
     } catch {
-      // Ignore — may not have permission or tab may be special
+        // Ignore — may not have permission or tab may be special
     }
     return null;
-  }
+}
 
-  /**
-   * Fetch all domain statuses and match against current tab.
-   */
-  async function refresh(): Promise<void> {
+/**
+ * Fetch all domain statuses and match against current tab.
+ */
+async function refresh(): Promise<void> {
     try {
-      const statuses = await getAllStatus();
-      allStatuses = statuses;
+        const statuses = await getAllStatus();
+        allStatuses = statuses;
 
-      // Find status for the current domain
-      if (currentDomain) {
-        currentStatus = statuses.find((s) => s.domain === currentDomain) ?? null;
-      } else {
-        currentStatus = null;
-      }
+        // Find status for the current domain
+        if (currentDomain) {
+            currentStatus = statuses.find((s) => s.domain === currentDomain) ?? null;
+        } else {
+            currentStatus = null;
+        }
 
-      error = null;
+        error = null;
     } catch (err) {
-      console.error('[TimeWarden Popup] Failed to fetch status:', err);
-      error = 'Failed to load data';
+        console.error('[TimeWarden Popup] Failed to fetch status:', err);
+        error = 'Failed to load data';
     }
-  }
+}
 
-  async function handlePause(): Promise<void> {
+async function handlePause(): Promise<void> {
     if (!currentDomain) return;
     try {
-      await togglePause(currentDomain);
-      // Refresh immediately to show updated state
-      await refresh();
+        await togglePause(currentDomain);
+        // Refresh immediately to show updated state
+        await refresh();
     } catch (err) {
-      console.error('[TimeWarden Popup] Pause toggle failed:', err);
+        console.error('[TimeWarden Popup] Pause toggle failed:', err);
     }
-  }
+}
 
-  function openSettings(): void {
+function openSettings(): void {
     browser.tabs.create({ url: browser.runtime.getURL('settings.html') });
     window.close();
-  }
+}
 
-  function openDashboard(): void {
+function openDashboard(): void {
     browser.tabs.create({ url: browser.runtime.getURL('dashboard.html') });
     window.close();
-  }
+}
 
-  onMount(async () => {
+onMount(async () => {
     // Initialize theme
     try {
-      const settings = await getSettings();
-      cleanupTheme = initTheme(settings.theme);
+        const settings = await getSettings();
+        cleanupTheme = initTheme(settings.theme);
     } catch {
-      cleanupTheme = initTheme('system');
+        cleanupTheme = initTheme('system');
     }
 
     try {
-      // Detect current tab hostname
-      const hostname = await detectCurrentTab();
+        // Detect current tab hostname
+        const hostname = await detectCurrentTab();
 
-      // Fetch statuses to know which domains are tracked
-      const statuses = await getAllStatus();
-      allStatuses = statuses;
+        // Fetch statuses to know which domains are tracked
+        const statuses = await getAllStatus();
+        allStatuses = statuses;
 
-      // Match current tab against tracked domains using the same rules as
-      // matchDomain(): exact match, plus www. variant for non-www configs
-      if (hostname) {
-        const match = statuses.find((s) => {
-          if (hostname === s.domain) return true;
-          if (!s.domain.startsWith('www.') && hostname === 'www.' + s.domain) return true;
-          return false;
-        });
-        if (match) {
-          currentDomain = match.domain;
-          currentStatus = match;
+        // Match current tab against tracked domains using the same rules as
+        // matchDomain(): exact match, plus www. variant for non-www configs
+        if (hostname) {
+            const match = statuses.find((s) => {
+                if (hostname === s.domain) return true;
+                if (!s.domain.startsWith('www.') && hostname === `www.${s.domain}`) return true;
+                return false;
+            });
+            if (match) {
+                currentDomain = match.domain;
+                currentStatus = match;
+            }
         }
-      }
 
-      error = null;
+        error = null;
     } catch (err) {
-      console.error('[TimeWarden Popup] Init error:', err);
-      error = 'Failed to load data';
+        console.error('[TimeWarden Popup] Init error:', err);
+        error = 'Failed to load data';
     } finally {
-      loading = false;
+        loading = false;
     }
 
     // Start polling every second for real-time updates
     pollInterval = setInterval(() => {
-      refresh();
+        refresh();
     }, 1000);
-  });
+});
 
-  onDestroy(() => {
+onDestroy(() => {
     if (pollInterval) {
-      clearInterval(pollInterval);
-      pollInterval = null;
+        clearInterval(pollInterval);
+        pollInterval = null;
     }
     if (cleanupTheme) {
-      cleanupTheme();
+        cleanupTheme();
     }
-  });
+});
 </script>
 
 <main class="w-[350px] min-h-[200px] max-h-[500px] overflow-y-auto bg-white dark:bg-gray-900">

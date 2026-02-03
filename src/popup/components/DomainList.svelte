@@ -1,43 +1,55 @@
 <script lang="ts">
-  import type { StatusResponse } from '$lib/types';
-  import { formatTimeRemaining } from '$lib/utils';
-  import { getProgressColor } from '$lib/utils';
+import type { StatusResponse } from '$lib/types';
+import { formatTimeRemaining, getProgressColor } from '$lib/utils';
 
-  interface Props {
+interface Props {
     statuses: StatusResponse[];
     currentDomain?: string | null;
-  }
+}
 
-  let { statuses, currentDomain = null }: Props = $props();
+let { statuses, currentDomain = null }: Props = $props();
 
-  /** Domains excluding the current one (shown in the hero section) */
-  let otherDomains = $derived(
-    statuses.filter((s) => s.domain !== currentDomain)
-  );
+/** Domains excluding the current one (shown in the hero section) */
+let otherDomains = $derived(statuses.filter((s) => s.domain !== currentDomain));
 
-  function getStatusBadge(s: StatusResponse): { text: string; colorClass: string } {
+function getStatusBadge(s: StatusResponse): { text: string; colorClass: string } {
     if (s.isBlocked) {
-      return { text: 'BLOCKED', colorClass: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' };
+        return {
+            text: 'BLOCKED',
+            colorClass: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+        };
     }
     if (s.isInGracePeriod) {
-      return { text: 'GRACE', colorClass: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' };
+        return {
+            text: 'GRACE',
+            colorClass: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+        };
     }
     if (s.isPaused) {
-      return { text: 'PAUSED', colorClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' };
+        return {
+            text: 'PAUSED',
+            colorClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+        };
     }
     if (s.isTracking) {
-      return { text: 'ACTIVE', colorClass: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' };
+        return {
+            text: 'ACTIVE',
+            colorClass: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+        };
     }
-    return { text: 'IDLE', colorClass: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400' };
-  }
+    return {
+        text: 'IDLE',
+        colorClass: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
+    };
+}
 
-  function getTimeColor(s: StatusResponse): string {
+function getTimeColor(s: StatusResponse): string {
     if (s.isBlocked) return 'text-red-600 dark:text-red-400';
     const color = getProgressColor(s.timeSpentSeconds, s.limitSeconds);
     if (color === 'red') return 'text-red-600 dark:text-red-400';
     if (color === 'yellow') return 'text-amber-600 dark:text-amber-400';
     return 'text-gray-900 dark:text-gray-100';
-  }
+}
 </script>
 
 {#if otherDomains.length > 0}

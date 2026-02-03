@@ -1,33 +1,33 @@
 <script lang="ts">
-  import type { BlockingStatsData } from '../dashboard-utils';
+import type { BlockingStatsData } from '../dashboard-utils';
 
-  interface Props {
+interface Props {
     data: BlockingStatsData;
-  }
+}
 
-  let { data }: Props = $props();
+let { data }: Props = $props();
 
-  let maxHourBlocks = $derived(Math.max(1, ...data.blocksByHour));
+let maxHourBlocks = $derived(Math.max(1, ...data.blocksByHour));
 
-  function formatHour(hour: number): string {
+function formatHour(hour: number): string {
     if (hour === 0) return '12a';
     if (hour === 12) return '12p';
     if (hour < 12) return `${hour}a`;
     return `${hour - 12}p`;
-  }
+}
 
-  // Find peak blocking hour
-  let peakHour = $derived.by(() => {
+// Find peak blocking hour
+let peakHour = $derived.by(() => {
     let max = 0;
     let peak = -1;
     for (let i = 0; i < 24; i++) {
-      if (data.blocksByHour[i] > max) {
-        max = data.blocksByHour[i];
-        peak = i;
-      }
+        if (data.blocksByHour[i] > max) {
+            max = data.blocksByHour[i];
+            peak = i;
+        }
     }
     return peak >= 0 ? formatHour(peak) : '--';
-  });
+});
 </script>
 
 <section aria-label="Blocking statistics">

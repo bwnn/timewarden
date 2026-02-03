@@ -1,109 +1,109 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
-  import { getBlockedStatus, getSettings } from '$lib/messaging';
-  import type { BlockedStatusResponse } from '$lib/types';
-  import { initTheme } from '$lib/theme';
+import { onDestroy, onMount } from 'svelte';
+import { getBlockedStatus, getSettings } from '$lib/messaging';
+import { initTheme } from '$lib/theme';
+import type { BlockedStatusResponse } from '$lib/types';
 
-  // ============================================================
-  // State
-  // ============================================================
+// ============================================================
+// State
+// ============================================================
 
-  let loading = $state(true);
-  let error = $state<string | null>(null);
-  let stats = $state<BlockedStatusResponse | null>(null);
-  let domain = $state('');
-  let cleanupTheme: (() => void) | null = null;
+let loading = $state(true);
+let error = $state<string | null>(null);
+let stats = $state<BlockedStatusResponse | null>(null);
+let domain = $state('');
+let cleanupTheme: (() => void) | null = null;
 
-  // ============================================================
-  // Helpers
-  // ============================================================
+// ============================================================
+// Helpers
+// ============================================================
 
-  function formatTime(totalSeconds: number): string {
+function formatTime(totalSeconds: number): string {
     const seconds = Math.max(0, Math.floor(totalSeconds));
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
 
     if (hours > 0 && minutes > 0) {
-      return `${hours}h ${minutes}m`;
+        return `${hours}h ${minutes}m`;
     }
     if (hours > 0) {
-      return `${hours}h`;
+        return `${hours}h`;
     }
     if (minutes > 0) {
-      return `${minutes}m`;
+        return `${minutes}m`;
     }
     return `${seconds}s`;
-  }
+}
 
-  function formatResetTime(resetTime: string): string {
+function formatResetTime(resetTime: string): string {
     const [hours, minutes] = resetTime.split(':').map(Number);
     const date = new Date();
     date.setHours(hours, minutes, 0, 0);
     return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  }
+}
 
-  // ============================================================
-  // Data Loading
-  // ============================================================
+// ============================================================
+// Data Loading
+// ============================================================
 
-  async function loadData(): Promise<void> {
+async function loadData(): Promise<void> {
     // Extract domain from URL query params
     const params = new URLSearchParams(window.location.search);
     const domainParam = params.get('domain');
 
     if (!domainParam) {
-      error = 'No domain specified.';
-      loading = false;
-      return;
+        error = 'No domain specified.';
+        loading = false;
+        return;
     }
 
     domain = domainParam;
 
     try {
-      stats = await getBlockedStatus(domain);
-      loading = false;
+        stats = await getBlockedStatus(domain);
+        loading = false;
     } catch (err) {
-      console.error('[TimeWarden] Failed to load blocked status:', err);
-      error = 'Failed to load stats.';
-      loading = false;
+        console.error('[TimeWarden] Failed to load blocked status:', err);
+        error = 'Failed to load stats.';
+        loading = false;
     }
-  }
+}
 
-  onMount(async () => {
+onMount(async () => {
     // Initialize theme
     try {
-      const settings = await getSettings();
-      cleanupTheme = initTheme(settings.theme);
+        const settings = await getSettings();
+        cleanupTheme = initTheme(settings.theme);
     } catch {
-      cleanupTheme = initTheme('system');
+        cleanupTheme = initTheme('system');
     }
 
     loadData();
-  });
+});
 
-  onDestroy(() => {
+onDestroy(() => {
     if (cleanupTheme) cleanupTheme();
-  });
+});
 
-  // ============================================================
-  // Actions
-  // ============================================================
+// ============================================================
+// Actions
+// ============================================================
 
-  async function closeTab(): Promise<void> {
+async function closeTab(): Promise<void> {
     try {
-      const tab = await browser.tabs.getCurrent();
-      if (tab.id != null) {
-        await browser.tabs.remove(tab.id);
-      }
+        const tab = await browser.tabs.getCurrent();
+        if (tab.id != null) {
+            await browser.tabs.remove(tab.id);
+        }
     } catch {
-      // Fallback: window.close() works if the tab was opened by script
-      window.close();
+        // Fallback: window.close() works if the tab was opened by script
+        window.close();
     }
-  }
+}
 
-  function openDashboard(): void {
+function openDashboard(): void {
     window.open(browser.runtime.getURL('dashboard.html'), '_blank');
-  }
+}
 </script>
 
 <main class="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">

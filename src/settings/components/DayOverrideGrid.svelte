@@ -1,124 +1,124 @@
 <script lang="ts">
-  import type { DayOfWeek, DayOverride } from '$lib/types';
-  import { getDayShortName, formatLimitSeconds } from '$lib/utils';
-  import { MIN_LIMIT_SECONDS, MAX_LIMIT_SECONDS } from '$lib/constants';
-  import TimePicker from './TimePicker.svelte';
+import { MAX_LIMIT_SECONDS, MIN_LIMIT_SECONDS } from '$lib/constants';
+import type { DayOfWeek, DayOverride } from '$lib/types';
+import { formatLimitSeconds, getDayShortName } from '$lib/utils';
+import TimePicker from './TimePicker.svelte';
 
-  interface Props {
+interface Props {
     dayOverrides: Partial<Record<DayOfWeek, DayOverride>>;
     defaultLimitSeconds: number;
     defaultResetTime: string;
     lockedDay: DayOfWeek | null;
     onchange: (overrides: Partial<Record<DayOfWeek, DayOverride>>) => void;
-  }
+}
 
-  let { dayOverrides, defaultLimitSeconds, defaultResetTime, lockedDay, onchange }: Props = $props();
+let { dayOverrides, defaultLimitSeconds, defaultResetTime, lockedDay, onchange }: Props = $props();
 
-  // Days ordered Mon-Sun
-  const days: DayOfWeek[] = ['1', '2', '3', '4', '5', '6', '0'];
+// Days ordered Mon-Sun
+const days: DayOfWeek[] = ['1', '2', '3', '4', '5', '6', '0'];
 
-  // -- Helpers ---------------------------------------------------
+// -- Helpers ---------------------------------------------------
 
-  function hasLimit(day: DayOfWeek): boolean {
+function hasLimit(day: DayOfWeek): boolean {
     return dayOverrides[day]?.limitSeconds !== undefined;
-  }
+}
 
-  function hasReset(day: DayOfWeek): boolean {
+function hasReset(day: DayOfWeek): boolean {
     return dayOverrides[day]?.resetTime !== undefined;
-  }
+}
 
-  function getLimitTotalSeconds(day: DayOfWeek): number {
+function getLimitTotalSeconds(day: DayOfWeek): number {
     return dayOverrides[day]?.limitSeconds ?? defaultLimitSeconds;
-  }
+}
 
-  function getLimitHours(day: DayOfWeek): number {
+function getLimitHours(day: DayOfWeek): number {
     return Math.floor(getLimitTotalSeconds(day) / 3600);
-  }
+}
 
-  function getLimitMins(day: DayOfWeek): number {
+function getLimitMins(day: DayOfWeek): number {
     return Math.floor((getLimitTotalSeconds(day) % 3600) / 60);
-  }
+}
 
-  function getLimitSecs(day: DayOfWeek): number {
+function getLimitSecs(day: DayOfWeek): number {
     return getLimitTotalSeconds(day) % 60;
-  }
+}
 
-  function getResetTime(day: DayOfWeek): string {
+function getResetTime(day: DayOfWeek): string {
     return dayOverrides[day]?.resetTime ?? defaultResetTime;
-  }
+}
 
-  function isLocked(day: DayOfWeek): boolean {
+function isLocked(day: DayOfWeek): boolean {
     return day === lockedDay;
-  }
+}
 
-  // -- Mutations (emit new overrides to parent) ------------------
+// -- Mutations (emit new overrides to parent) ------------------
 
-  function setLimitOverride(day: DayOfWeek, totalSeconds: number) {
+function setLimitOverride(day: DayOfWeek, totalSeconds: number) {
     const clamped = Math.max(MIN_LIMIT_SECONDS, Math.min(MAX_LIMIT_SECONDS, totalSeconds));
     const newOverrides = { ...dayOverrides };
     newOverrides[day] = { ...(newOverrides[day] ?? {}), limitSeconds: clamped };
     onchange(newOverrides);
-  }
+}
 
-  function clearLimitOverride(day: DayOfWeek) {
+function clearLimitOverride(day: DayOfWeek) {
     const current = dayOverrides[day];
     if (!current) return;
     const updated: DayOverride = { ...current };
     delete updated.limitSeconds;
     const newOverrides = { ...dayOverrides };
     if (updated.resetTime === undefined) {
-      delete newOverrides[day];
+        delete newOverrides[day];
     } else {
-      newOverrides[day] = updated;
+        newOverrides[day] = updated;
     }
     onchange(newOverrides);
-  }
+}
 
-  function enableLimitOverride(day: DayOfWeek) {
+function enableLimitOverride(day: DayOfWeek) {
     setLimitOverride(day, defaultLimitSeconds);
-  }
+}
 
-  function setResetOverride(day: DayOfWeek, time: string) {
+function setResetOverride(day: DayOfWeek, time: string) {
     const newOverrides = { ...dayOverrides };
     newOverrides[day] = { ...(newOverrides[day] ?? {}), resetTime: time };
     onchange(newOverrides);
-  }
+}
 
-  function clearResetOverride(day: DayOfWeek) {
+function clearResetOverride(day: DayOfWeek) {
     const current = dayOverrides[day];
     if (!current) return;
     const updated: DayOverride = { ...current };
     delete updated.resetTime;
     const newOverrides = { ...dayOverrides };
     if (updated.limitSeconds === undefined) {
-      delete newOverrides[day];
+        delete newOverrides[day];
     } else {
-      newOverrides[day] = updated;
+        newOverrides[day] = updated;
     }
     onchange(newOverrides);
-  }
+}
 
-  function enableResetOverride(day: DayOfWeek) {
+function enableResetOverride(day: DayOfWeek) {
     setResetOverride(day, defaultResetTime);
-  }
+}
 
-  function handleLimitHoursChange(day: DayOfWeek, newHours: number) {
+function handleLimitHoursChange(day: DayOfWeek, newHours: number) {
     const currentMins = getLimitMins(day);
     const currentSecs = getLimitSecs(day);
     setLimitOverride(day, newHours * 3600 + currentMins * 60 + currentSecs);
-  }
+}
 
-  function handleLimitMinsChange(day: DayOfWeek, newMins: number) {
+function handleLimitMinsChange(day: DayOfWeek, newMins: number) {
     const currentHours = getLimitHours(day);
     const currentSecs = getLimitSecs(day);
     setLimitOverride(day, currentHours * 3600 + newMins * 60 + currentSecs);
-  }
+}
 
-  function handleLimitSecsChange(day: DayOfWeek, newSecs: number) {
+function handleLimitSecsChange(day: DayOfWeek, newSecs: number) {
     const currentHours = getLimitHours(day);
     const currentMins = getLimitMins(day);
     setLimitOverride(day, currentHours * 3600 + currentMins * 60 + newSecs);
-  }
+}
 </script>
 
 <div class="space-y-1" role="grid" aria-label="Day override settings">

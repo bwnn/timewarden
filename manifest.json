@@ -1,45 +1,39 @@
 {
-  "manifest_version": 3,
-  "name": "TimeWarden",
-  "version": "1.0.0",
-  "description": "Enforce daily time limits on websites. Take control of your browsing habits.",
-  "browser_specific_settings": {
-    "gecko": {
-      "id": "timewarden@bwnn",
-      "strict_min_version": "109.0"
+    "manifest_version": 3,
+    "name": "TimeWarden",
+    "version": "1.0.0",
+    "description": "Enforce daily time limits on websites. Take control of your browsing habits.",
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "timewarden@bwnn",
+            "strict_min_version": "109.0"
+        }
+    },
+    "permissions": ["tabs", "storage", "notifications", "idle", "alarms"],
+    "background": {
+        "scripts": ["background/index.js"],
+        "type": "module"
+    },
+    "action": {
+        "default_popup": "popup.html",
+        "default_icon": {
+            "16": "icons/icon-16.png",
+            "32": "icons/icon-32.png",
+            "48": "icons/icon-48.png"
+        }
+    },
+    "options_ui": {
+        "page": "settings.html",
+        "open_in_tab": true
+    },
+    "web_accessible_resources": [
+        {
+            "resources": ["blocked.html"],
+            "matches": ["<all_urls>"]
+        }
+    ],
+    "icons": {
+        "48": "icons/icon-48.png",
+        "128": "icons/icon-128.png"
     }
-  },
-  "permissions": [
-    "tabs",
-    "storage",
-    "notifications",
-    "idle",
-    "alarms"
-  ],
-  "background": {
-    "scripts": ["background/index.js"],
-    "type": "module"
-  },
-  "action": {
-    "default_popup": "popup.html",
-    "default_icon": {
-      "16": "icons/icon-16.png",
-      "32": "icons/icon-32.png",
-      "48": "icons/icon-48.png"
-    }
-  },
-  "options_ui": {
-    "page": "settings.html",
-    "open_in_tab": true
-  },
-  "web_accessible_resources": [
-    {
-      "resources": ["blocked.html"],
-      "matches": ["<all_urls>"]
-    }
-  ],
-  "icons": {
-    "48": "icons/icon-48.png",
-    "128": "icons/icon-128.png"
-  }
 }

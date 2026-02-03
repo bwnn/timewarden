@@ -1,25 +1,25 @@
 <script lang="ts">
-  import { formatTimeRemaining } from '$lib/utils';
+import { formatTimeRemaining } from '$lib/utils';
 
-  interface Props {
+interface Props {
     isPaused: boolean;
     pauseRemainingSeconds: number;
     disabled?: boolean;
     onclick: () => void;
-  }
+}
 
-  let { isPaused, pauseRemainingSeconds, disabled = false, onclick }: Props = $props();
+let { isPaused, pauseRemainingSeconds, disabled = false, onclick }: Props = $props();
 
-  let exhausted = $derived(pauseRemainingSeconds <= 0 && !isPaused);
-  let buttonDisabled = $derived(disabled || exhausted);
+let exhausted = $derived(pauseRemainingSeconds <= 0 && !isPaused);
+let buttonDisabled = $derived(disabled || exhausted);
 
-  let label = $derived(
+let label = $derived(
     isPaused
-      ? `Resume (${formatTimeRemaining(pauseRemainingSeconds)} left)`
-      : exhausted
-        ? 'Pause (exhausted)'
-        : `Pause (${formatTimeRemaining(pauseRemainingSeconds)} left)`
-  );
+        ? `Resume (${formatTimeRemaining(pauseRemainingSeconds)} left)`
+        : exhausted
+          ? 'Pause (exhausted)'
+          : `Pause (${formatTimeRemaining(pauseRemainingSeconds)} left)`,
+);
 </script>
 
 <button

@@ -9,16 +9,16 @@
  * - Period limit/reset time snapshots (immutable once created)
  */
 
-import type {
-  StorageSchema,
-  DomainConfig,
-  DailyUsage,
-  DomainUsage,
-  GlobalSettings,
-  DayOfWeek,
-} from '$lib/types';
 import { DEFAULT_STORAGE, MAX_USAGE_DAYS } from '$lib/constants';
-import { getEffectiveLimit, getEffectiveResetTime, getCurrentPeriodDate } from '$lib/utils';
+import type {
+    DailyUsage,
+    DayOfWeek,
+    DomainConfig,
+    DomainUsage,
+    GlobalSettings,
+    StorageSchema,
+} from '$lib/types';
+import { getCurrentPeriodDate, getEffectiveLimit, getEffectiveResetTime } from '$lib/utils';
 
 // ============================================================
 // Core Storage Access
@@ -29,32 +29,34 @@ import { getEffectiveLimit, getEffectiveResetTime, getCurrentPeriodDate } from '
  * Handles corrupt or missing storage gracefully by falling back to defaults.
  */
 export async function loadStorage(): Promise<StorageSchema> {
-  try {
-    const result = await browser.storage.local.get(['domains', 'usage', 'settings']);
+    try {
+        const result = await browser.storage.local.get(['domains', 'usage', 'settings']);
 
-    // Validate and sanitize each field — fall back to defaults if corrupt
-    const domains = Array.isArray(result.domains)
-      ? (result.domains as StorageSchema['domains'])
-      : [...DEFAULT_STORAGE.domains];
+        // Validate and sanitize each field — fall back to defaults if corrupt
+        const domains = Array.isArray(result.domains)
+            ? (result.domains as StorageSchema['domains'])
+            : [...DEFAULT_STORAGE.domains];
 
-    const usage = Array.isArray(result.usage)
-      ? (result.usage as StorageSchema['usage'])
-      : [...DEFAULT_STORAGE.usage];
+        const usage = Array.isArray(result.usage)
+            ? (result.usage as StorageSchema['usage'])
+            : [...DEFAULT_STORAGE.usage];
 
-    const settings =
-      result.settings && typeof result.settings === 'object' && !Array.isArray(result.settings)
-        ? { ...DEFAULT_STORAGE.settings, ...(result.settings as Partial<GlobalSettings>) }
-        : { ...DEFAULT_STORAGE.settings };
+        const settings =
+            result.settings &&
+            typeof result.settings === 'object' &&
+            !Array.isArray(result.settings)
+                ? { ...DEFAULT_STORAGE.settings, ...(result.settings as Partial<GlobalSettings>) }
+                : { ...DEFAULT_STORAGE.settings };
 
-    return { domains, usage, settings };
-  } catch (err) {
-    console.error('[TimeWarden] Storage load failed, using defaults:', err);
-    return {
-      domains: [...DEFAULT_STORAGE.domains],
-      usage: [...DEFAULT_STORAGE.usage],
-      settings: { ...DEFAULT_STORAGE.settings },
-    };
-  }
+        return { domains, usage, settings };
+    } catch (err) {
+        console.error('[TimeWarden] Storage load failed, using defaults:', err);
+        return {
+            domains: [...DEFAULT_STORAGE.domains],
+            usage: [...DEFAULT_STORAGE.usage],
+            settings: { ...DEFAULT_STORAGE.settings },
+        };
+    }
 }
 
 /**
@@ -62,12 +64,12 @@ export async function loadStorage(): Promise<StorageSchema> {
  * cascading failures in the tracking engine.
  */
 export async function saveStorage(data: Partial<StorageSchema>): Promise<void> {
-  try {
-    await browser.storage.local.set(data);
-  } catch (err) {
-    console.error('[TimeWarden] Storage save failed:', err);
-    throw err; // Re-throw so callers can handle if needed
-  }
+    try {
+        await browser.storage.local.set(data);
+    } catch (err) {
+        console.error('[TimeWarden] Storage save failed:', err);
+        throw err; // Re-throw so callers can handle if needed
+    }
 }
 
 // ============================================================
@@ -78,24 +80,24 @@ export async function saveStorage(data: Partial<StorageSchema>): Promise<void> {
  * Get all configured domains.
  */
 export async function getDomainConfigs(): Promise<DomainConfig[]> {
-  const storage = await loadStorage();
-  return storage.domains;
+    const storage = await loadStorage();
+    return storage.domains;
 }
 
 /**
  * Get a single domain config by hostname.
  */
 export async function getDomainConfig(domain: string): Promise<DomainConfig | null> {
-  const domains = await getDomainConfigs();
-  return domains.find((d) => d.domain === domain) ?? null;
+    const domains = await getDomainConfigs();
+    return domains.find((d) => d.domain === domain) ?? null;
 }
 
 /**
  * Get all tracked domain hostnames (enabled only).
  */
 export async function getTrackedDomains(): Promise<string[]> {
-  const domains = await getDomainConfigs();
-  return domains.filter((d) => d.enabled).map((d) => d.domain);
+    const domains = await getDomainConfigs();
+    return domains.filter((d) => d.enabled).map((d) => d.domain);
 }
 
 /**
@@ -104,25 +106,25 @@ export async function getTrackedDomains(): Promise<string[]> {
  * If it's new, it will be appended.
  */
 export async function saveDomainConfig(config: DomainConfig): Promise<void> {
-  const storage = await loadStorage();
-  const index = storage.domains.findIndex((d) => d.domain === config.domain);
+    const storage = await loadStorage();
+    const index = storage.domains.findIndex((d) => d.domain === config.domain);
 
-  if (index >= 0) {
-    storage.domains[index] = config;
-  } else {
-    storage.domains.push(config);
-  }
+    if (index >= 0) {
+        storage.domains[index] = config;
+    } else {
+        storage.domains.push(config);
+    }
 
-  await saveStorage({ domains: storage.domains });
+    await saveStorage({ domains: storage.domains });
 }
 
 /**
  * Remove a domain configuration entirely.
  */
 export async function removeDomainConfig(domain: string): Promise<void> {
-  const storage = await loadStorage();
-  storage.domains = storage.domains.filter((d) => d.domain !== domain);
-  await saveStorage({ domains: storage.domains });
+    const storage = await loadStorage();
+    storage.domains = storage.domains.filter((d) => d.domain !== domain);
+    await saveStorage({ domains: storage.domains });
 }
 
 // ============================================================
@@ -133,20 +135,17 @@ export async function removeDomainConfig(domain: string): Promise<void> {
  * Get usage for a specific date.
  */
 export async function getDailyUsage(date: string): Promise<DailyUsage | null> {
-  const storage = await loadStorage();
-  return storage.usage.find((u) => u.date === date) ?? null;
+    const storage = await loadStorage();
+    return storage.usage.find((u) => u.date === date) ?? null;
 }
 
 /**
  * Get domain usage within a specific daily period.
  */
-export async function getDomainUsage(
-  domain: string,
-  date: string
-): Promise<DomainUsage | null> {
-  const daily = await getDailyUsage(date);
-  if (!daily) return null;
-  return daily.domains.find((d) => d.domain === domain) ?? null;
+export async function getDomainUsage(domain: string, date: string): Promise<DomainUsage | null> {
+    const daily = await getDailyUsage(date);
+    if (!daily) return null;
+    return daily.domains.find((d) => d.domain === domain) ?? null;
 }
 
 /**
@@ -157,62 +156,62 @@ export async function getDomainUsage(
  * as immutable values for this period.
  */
 export async function getOrCreateDomainUsage(
-  config: DomainConfig,
-  globalSettings: GlobalSettings
+    config: DomainConfig,
+    globalSettings: GlobalSettings,
 ): Promise<{ usage: DomainUsage; date: string; isNew: boolean }> {
-  const date = getCurrentPeriodDate(config, globalSettings.resetTime);
-  const storage = await loadStorage();
+    const date = getCurrentPeriodDate(config, globalSettings.resetTime);
+    const storage = await loadStorage();
 
-  // Find or create daily usage entry
-  let daily = storage.usage.find((u) => u.date === date);
-  let dailyIsNew = false;
+    // Find or create daily usage entry
+    let daily = storage.usage.find((u) => u.date === date);
+    let dailyIsNew = false;
 
-  if (!daily) {
-    daily = { date, domains: [] };
-    storage.usage.push(daily);
-    dailyIsNew = true;
+    if (!daily) {
+        daily = { date, domains: [] };
+        storage.usage.push(daily);
+        dailyIsNew = true;
 
-    // Enforce 30-day rolling cap
-    while (storage.usage.length > MAX_USAGE_DAYS) {
-      storage.usage.shift(); // Remove oldest
+        // Enforce 30-day rolling cap
+        while (storage.usage.length > MAX_USAGE_DAYS) {
+            storage.usage.shift(); // Remove oldest
+        }
+
+        // Sort by date
+        storage.usage.sort((a, b) => a.date.localeCompare(b.date));
     }
 
-    // Sort by date
-    storage.usage.sort((a, b) => a.date.localeCompare(b.date));
-  }
+    // Find or create domain usage within the daily entry
+    let domainUsage = daily.domains.find((d) => d.domain === config.domain);
+    let isNew = false;
 
-  // Find or create domain usage within the daily entry
-  let domainUsage = daily.domains.find((d) => d.domain === config.domain);
-  let isNew = false;
+    if (!domainUsage) {
+        // Snapshot the effective limit and reset time for this period
+        const day = String(new Date().getDay()) as DayOfWeek;
+        const effectiveLimit = getEffectiveLimit(config, day);
+        const effectiveResetTime = getEffectiveResetTime(config, day, globalSettings.resetTime);
 
-  if (!domainUsage) {
-    // Snapshot the effective limit and reset time for this period
-    const day = String(new Date().getDay()) as DayOfWeek;
-    const effectiveLimit = getEffectiveLimit(config, day);
-    const effectiveResetTime = getEffectiveResetTime(config, day, globalSettings.resetTime);
+        domainUsage = {
+            domain: config.domain,
+            timeSpentSeconds: 0,
+            visitCount: 0,
+            sessions: [],
+            pausedSeconds: 0,
+            limitSeconds: effectiveLimit,
+            resetTime: effectiveResetTime,
+            notifications: {},
+            blocked: false,
+            blockedAt: null,
+        };
 
-    domainUsage = {
-      domain: config.domain,
-      timeSpentSeconds: 0,
-      visitCount: 0,
-      sessions: [],
-      pausedSeconds: 0,
-      limitSeconds: effectiveLimit,
-      resetTime: effectiveResetTime,
-      notifications: {},
-      blocked: false,
-      blockedAt: null,
-    };
+        daily.domains.push(domainUsage);
+        isNew = true;
+    }
 
-    daily.domains.push(domainUsage);
-    isNew = true;
-  }
+    if (dailyIsNew || isNew) {
+        await saveStorage({ usage: storage.usage });
+    }
 
-  if (dailyIsNew || isNew) {
-    await saveStorage({ usage: storage.usage });
-  }
-
-  return { usage: domainUsage, date, isNew };
+    return { usage: domainUsage, date, isNew };
 }
 
 /**
@@ -220,28 +219,28 @@ export async function getOrCreateDomainUsage(
  * The updater function receives the current usage and returns the modified version.
  */
 export async function updateDomainUsage(
-  domain: string,
-  date: string,
-  updater: (usage: DomainUsage) => DomainUsage
+    domain: string,
+    date: string,
+    updater: (usage: DomainUsage) => DomainUsage,
 ): Promise<void> {
-  const storage = await loadStorage();
-  const daily = storage.usage.find((u) => u.date === date);
-  if (!daily) return;
+    const storage = await loadStorage();
+    const daily = storage.usage.find((u) => u.date === date);
+    if (!daily) return;
 
-  const index = daily.domains.findIndex((d) => d.domain === domain);
-  if (index < 0) return;
+    const index = daily.domains.findIndex((d) => d.domain === domain);
+    if (index < 0) return;
 
-  daily.domains[index] = updater(daily.domains[index]);
-  await saveStorage({ usage: storage.usage });
+    daily.domains[index] = updater(daily.domains[index]);
+    await saveStorage({ usage: storage.usage });
 }
 
 /**
  * Get usage data for a date range (for dashboard).
  */
 export async function getUsageRange(days: number): Promise<DailyUsage[]> {
-  const storage = await loadStorage();
-  // usage is sorted by date, newest last — return the last N entries
-  return storage.usage.slice(-days);
+    const storage = await loadStorage();
+    // usage is sorted by date, newest last — return the last N entries
+    return storage.usage.slice(-days);
 }
 
 // ============================================================
@@ -252,15 +251,15 @@ export async function getUsageRange(days: number): Promise<DailyUsage[]> {
  * Get global settings.
  */
 export async function getGlobalSettings(): Promise<GlobalSettings> {
-  const storage = await loadStorage();
-  return storage.settings;
+    const storage = await loadStorage();
+    return storage.settings;
 }
 
 /**
  * Save global settings (full replace).
  */
 export async function saveGlobalSettings(settings: GlobalSettings): Promise<void> {
-  await saveStorage({ settings });
+    await saveStorage({ settings });
 }
 
 // ============================================================
@@ -271,30 +270,30 @@ export async function saveGlobalSettings(settings: GlobalSettings): Promise<void
  * Check blocked state for a domain in its current period.
  */
 export async function isDomainBlocked(
-  config: DomainConfig,
-  globalSettings: GlobalSettings
+    config: DomainConfig,
+    globalSettings: GlobalSettings,
 ): Promise<boolean> {
-  const date = getCurrentPeriodDate(config, globalSettings.resetTime);
-  const usage = await getDomainUsage(config.domain, date);
-  return usage?.blocked ?? false;
+    const date = getCurrentPeriodDate(config, globalSettings.resetTime);
+    const usage = await getDomainUsage(config.domain, date);
+    return usage?.blocked ?? false;
 }
 
 /**
  * Get all domains that are currently blocked.
  */
 export async function getBlockedDomains(): Promise<string[]> {
-  const storage = await loadStorage();
-  const blocked: string[] = [];
+    const storage = await loadStorage();
+    const blocked: string[] = [];
 
-  for (const config of storage.domains) {
-    if (!config.enabled) continue;
-    const date = getCurrentPeriodDate(config, storage.settings.resetTime);
-    const daily = storage.usage.find((u) => u.date === date);
-    const domainUsage = daily?.domains.find((d) => d.domain === config.domain);
-    if (domainUsage?.blocked) {
-      blocked.push(config.domain);
+    for (const config of storage.domains) {
+        if (!config.enabled) continue;
+        const date = getCurrentPeriodDate(config, storage.settings.resetTime);
+        const daily = storage.usage.find((u) => u.date === date);
+        const domainUsage = daily?.domains.find((d) => d.domain === config.domain);
+        if (domainUsage?.blocked) {
+            blocked.push(config.domain);
+        }
     }
-  }
 
-  return blocked;
+    return blocked;
 }

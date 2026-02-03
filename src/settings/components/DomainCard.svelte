@@ -1,16 +1,16 @@
 <script lang="ts">
-  import type { DomainConfig } from '$lib/types';
-  import { formatLimitSeconds } from '$lib/utils';
+import type { DomainConfig } from '$lib/types';
+import { formatLimitSeconds } from '$lib/utils';
 
-  interface Props {
+interface Props {
     config: DomainConfig;
     isSelected: boolean;
     ontoggle: (domain: string, enabled: boolean) => void;
     onselect: (domain: string) => void;
     ondelete: (domain: string) => void;
-  }
+}
 
-  let { config, isSelected, ontoggle, onselect, ondelete }: Props = $props();
+let { config, isSelected, ontoggle, onselect, ondelete }: Props = $props();
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->

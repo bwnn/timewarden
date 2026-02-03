@@ -1,54 +1,54 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
-  import type {
-    DomainConfig,
-    GlobalSettings as GlobalSettingsType,
+import { onDestroy, onMount } from 'svelte';
+import {
+    getDashboardData,
+    removeDomain as removeDomainMsg,
+    saveDomainConfig as saveDomainConfigMsg,
+    saveGlobalSettings as saveGlobalSettingsMsg,
+} from '$lib/messaging';
+import { applyTheme, initTheme } from '$lib/theme';
+import type {
     DailyUsage,
     DayOfWeek,
-  } from '$lib/types';
-  import {
-    getDashboardData,
-    saveDomainConfig as saveDomainConfigMsg,
-    removeDomain as removeDomainMsg,
-    saveGlobalSettings as saveGlobalSettingsMsg,
-  } from '$lib/messaging';
-  import { getCurrentPeriodDate } from '$lib/utils';
-  import { initTheme, applyTheme } from '$lib/theme';
-  import GlobalSettingsComp from './components/GlobalSettings.svelte';
-  import DomainCard from './components/DomainCard.svelte';
-  import DomainConfigEditor from './components/DomainConfigEditor.svelte';
-  import ConfirmDialog from './components/ConfirmDialog.svelte';
-  import DestructiveConfirmDialog from './components/DestructiveConfirmDialog.svelte';
+    DomainConfig,
+    GlobalSettings as GlobalSettingsType,
+} from '$lib/types';
+import { getCurrentPeriodDate } from '$lib/utils';
+import ConfirmDialog from './components/ConfirmDialog.svelte';
+import DestructiveConfirmDialog from './components/DestructiveConfirmDialog.svelte';
+import DomainCard from './components/DomainCard.svelte';
+import DomainConfigEditor from './components/DomainConfigEditor.svelte';
+import GlobalSettingsComp from './components/GlobalSettings.svelte';
 
-  // -- State ---------------------------------------------------------
+// -- State ---------------------------------------------------------
 
-  let domains = $state<DomainConfig[]>([]);
-  let settings = $state<GlobalSettingsType>({
+let domains = $state<DomainConfig[]>([]);
+let settings = $state<GlobalSettingsType>({
     resetTime: '00:00',
     notificationsEnabled: true,
     gracePeriodSeconds: 60,
     theme: 'system',
     notificationRules: [],
-  });
-  let usageData = $state<DailyUsage[]>([]);
-  let loading = $state(true);
-  let loadError = $state('');
-  let cleanupTheme: (() => void) | null = null;
+});
+let usageData = $state<DailyUsage[]>([]);
+let loading = $state(true);
+let loadError = $state('');
+let cleanupTheme: (() => void) | null = null;
 
-  // UI state
-  let showAddForm = $state(false);
-  let selectedDomain = $state<string | null>(null);
-  let showDeleteConfirm = $state(false);
-  let deletingDomain = $state<string | null>(null);
-  let showDestructiveToggle = $state(false);
-  let destructiveToggleDomain = $state<string | null>(null);
+// UI state
+let showAddForm = $state(false);
+let selectedDomain = $state<string | null>(null);
+let showDeleteConfirm = $state(false);
+let deletingDomain = $state<string | null>(null);
+let showDestructiveToggle = $state(false);
+let destructiveToggleDomain = $state<string | null>(null);
 
-  // -- Derived -------------------------------------------------------
+// -- Derived -------------------------------------------------------
 
-  let existingDomains = $derived(domains.map((d) => d.domain));
+let existingDomains = $derived(domains.map((d) => d.domain));
 
-  // Lock detection: determine if the current period has started for the selected domain
-  let lockedDay = $derived.by((): DayOfWeek | null => {
+// Lock detection: determine if the current period has started for the selected domain
+let lockedDay = $derived.by((): DayOfWeek | null => {
     if (!selectedDomain) return null;
 
     const originalConfig = domains.find((d) => d.domain === selectedDomain);
@@ -63,149 +63,149 @@
     const parts = periodDate.split('-').map(Number);
     const periodDateObj = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
     return String(periodDateObj.getDay()) as DayOfWeek;
-  });
+});
 
-  // Session-active lock: checks if a DomainUsage entry exists for the current period
-  function isDomainLocked(domain: string): boolean {
+// Session-active lock: checks if a DomainUsage entry exists for the current period
+function isDomainLocked(domain: string): boolean {
     const config = domains.find((d) => d.domain === domain);
     if (!config) return false;
     const periodDate = getCurrentPeriodDate(config, settings.resetTime);
     const daily = usageData.find((u) => u.date === periodDate);
     return daily?.domains.some((d) => d.domain === domain) ?? false;
-  }
+}
 
-  // -- Data Loading --------------------------------------------------
+// -- Data Loading --------------------------------------------------
 
-  onMount(async () => {
+onMount(async () => {
     await loadData();
-  });
+});
 
-  onDestroy(() => {
+onDestroy(() => {
     if (cleanupTheme) cleanupTheme();
-  });
+});
 
-  async function loadData() {
+async function loadData() {
     try {
-      loading = true;
-      loadError = '';
-      const data = await getDashboardData('30d');
-      domains = data.domains;
-      settings = data.settings;
-      usageData = data.usage;
+        loading = true;
+        loadError = '';
+        const data = await getDashboardData('30d');
+        domains = data.domains;
+        settings = data.settings;
+        usageData = data.usage;
 
-      // Initialize theme from settings
-      if (!cleanupTheme) {
-        cleanupTheme = initTheme(settings.theme);
-      } else {
-        applyTheme(settings.theme);
-      }
+        // Initialize theme from settings
+        if (!cleanupTheme) {
+            cleanupTheme = initTheme(settings.theme);
+        } else {
+            applyTheme(settings.theme);
+        }
     } catch (e) {
-      loadError = 'Failed to load settings. Please try refreshing the page.';
-      console.error('[TimeWarden] Failed to load settings:', e);
-      if (!cleanupTheme) {
-        cleanupTheme = initTheme('system');
-      }
+        loadError = 'Failed to load settings. Please try refreshing the page.';
+        console.error('[TimeWarden] Failed to load settings:', e);
+        if (!cleanupTheme) {
+            cleanupTheme = initTheme('system');
+        }
     } finally {
-      loading = false;
+        loading = false;
     }
-  }
+}
 
-  // -- Handlers: Global Settings -------------------------------------
+// -- Handlers: Global Settings -------------------------------------
 
-  async function handleSaveGlobalSettings(newSettings: GlobalSettingsType) {
+async function handleSaveGlobalSettings(newSettings: GlobalSettingsType) {
     try {
-      await saveGlobalSettingsMsg(newSettings);
-      settings = newSettings;
-      applyTheme(newSettings.theme);
+        await saveGlobalSettingsMsg(newSettings);
+        settings = newSettings;
+        applyTheme(newSettings.theme);
     } catch (e) {
-      console.error('[TimeWarden] Failed to save global settings:', e);
+        console.error('[TimeWarden] Failed to save global settings:', e);
     }
-  }
+}
 
-  // -- Handlers: Domain Selection ------------------------------------
+// -- Handlers: Domain Selection ------------------------------------
 
-  function handleSelectDomain(domain: string) {
+function handleSelectDomain(domain: string) {
     if (selectedDomain === domain) {
-      selectedDomain = null;
+        selectedDomain = null;
     } else {
-      selectedDomain = domain;
-      showAddForm = false;
+        selectedDomain = domain;
+        showAddForm = false;
     }
-  }
+}
 
-  async function handleToggleDomain(domain: string, enabled: boolean) {
+async function handleToggleDomain(domain: string, enabled: boolean) {
     // If disabling a domain with an active session, require destructive confirmation
     if (!enabled && isDomainLocked(domain)) {
-      destructiveToggleDomain = domain;
-      showDestructiveToggle = true;
-      return;
+        destructiveToggleDomain = domain;
+        showDestructiveToggle = true;
+        return;
     }
     await doToggleDomain(domain, enabled);
-  }
+}
 
-  async function doToggleDomain(domain: string, enabled: boolean) {
+async function doToggleDomain(domain: string, enabled: boolean) {
     const config = domains.find((d) => d.domain === domain);
     if (!config) return;
 
     const updated = { ...$state.snapshot(config), enabled } as DomainConfig;
     try {
-      await saveDomainConfigMsg(updated);
-      domains = domains.map((d) => (d.domain === domain ? updated : d));
+        await saveDomainConfigMsg(updated);
+        domains = domains.map((d) => (d.domain === domain ? updated : d));
     } catch (e) {
-      console.error('[TimeWarden] Failed to toggle domain:', e);
+        console.error('[TimeWarden] Failed to toggle domain:', e);
     }
-  }
+}
 
-  function handleDestructiveToggleConfirm() {
+function handleDestructiveToggleConfirm() {
     if (destructiveToggleDomain) {
-      doToggleDomain(destructiveToggleDomain, false);
+        doToggleDomain(destructiveToggleDomain, false);
     }
     showDestructiveToggle = false;
     destructiveToggleDomain = null;
-  }
+}
 
-  // -- Handlers: Add / Save / Delete ---------------------------------
+// -- Handlers: Add / Save / Delete ---------------------------------
 
-  async function handleAddDomain(config: DomainConfig) {
+async function handleAddDomain(config: DomainConfig) {
     await saveDomainConfigMsg(config);
     domains = [...domains, config];
     showAddForm = false;
-  }
+}
 
-  async function handleSaveEdit(config: DomainConfig) {
+async function handleSaveEdit(config: DomainConfig) {
     // Preserve the canonical enabled state from the domains array
     // (the toggle switch may have changed it while the editor was open)
     const currentDomain = domains.find((d) => d.domain === config.domain);
     const toSave = { ...config, enabled: currentDomain?.enabled ?? config.enabled };
     await saveDomainConfigMsg(toSave);
     domains = domains.map((d) => (d.domain === toSave.domain ? toSave : d));
-  }
+}
 
-  function handleShowAdd() {
+function handleShowAdd() {
     showAddForm = true;
     selectedDomain = null;
-  }
+}
 
-  function handleInlineDelete(domain: string) {
+function handleInlineDelete(domain: string) {
     deletingDomain = domain;
     showDeleteConfirm = true;
-  }
+}
 
-  async function handleDeleteDomain() {
+async function handleDeleteDomain() {
     const domain = deletingDomain;
     if (!domain) return;
     try {
-      await removeDomainMsg(domain);
-      domains = domains.filter((d) => d.domain !== domain);
-      if (selectedDomain === domain) {
-        selectedDomain = null;
-      }
-      showDeleteConfirm = false;
-      deletingDomain = null;
+        await removeDomainMsg(domain);
+        domains = domains.filter((d) => d.domain !== domain);
+        if (selectedDomain === domain) {
+            selectedDomain = null;
+        }
+        showDeleteConfirm = false;
+        deletingDomain = null;
     } catch (e) {
-      console.error('[TimeWarden] Failed to delete domain:', e);
+        console.error('[TimeWarden] Failed to delete domain:', e);
     }
-  }
+}
 </script>
 
 <div class="min-h-screen bg-gray-50 dark:bg-gray-900">

@@ -6,156 +6,157 @@
  */
 
 declare namespace browser {
-  namespace storage {
-    interface StorageArea {
-      get(keys?: string | string[] | null): Promise<Record<string, unknown>>;
-      set(items: Record<string, unknown>): Promise<void>;
-      remove(keys: string | string[]): Promise<void>;
-      clear(): Promise<void>;
-    }
-    const local: StorageArea;
-  }
-
-  namespace runtime {
-    interface MessageSender {
-      tab?: tabs.Tab;
-      frameId?: number;
-      id?: string;
-      url?: string;
+    namespace storage {
+        interface StorageArea {
+            get(keys?: string | string[] | null): Promise<Record<string, unknown>>;
+            set(items: Record<string, unknown>): Promise<void>;
+            remove(keys: string | string[]): Promise<void>;
+            clear(): Promise<void>;
+        }
+        const local: StorageArea;
     }
 
-    function sendMessage(message: unknown): Promise<unknown>;
-    function getURL(path: string): string;
-    function openOptionsPage(): Promise<void>;
+    namespace runtime {
+        interface MessageSender {
+            tab?: tabs.Tab;
+            frameId?: number;
+            id?: string;
+            url?: string;
+        }
 
-    const onMessage: {
-      addListener(
-        callback: (
-          message: unknown,
-          sender: MessageSender,
-        ) => Promise<unknown> | undefined,
-      ): void;
-      removeListener(
-        callback: (
-          message: unknown,
-          sender: MessageSender,
-        ) => Promise<unknown> | undefined,
-      ): void;
-    };
+        function sendMessage(message: unknown): Promise<unknown>;
+        function getURL(path: string): string;
+        function openOptionsPage(): Promise<void>;
 
-    const onInstalled: {
-      addListener(callback: (details: { reason: string }) => void): void;
-    };
+        const onMessage: {
+            addListener(
+                callback: (message: unknown, sender: MessageSender) => Promise<unknown> | undefined,
+            ): void;
+            removeListener(
+                callback: (message: unknown, sender: MessageSender) => Promise<unknown> | undefined,
+            ): void;
+        };
 
-    const onStartup: {
-      addListener(callback: () => void): void;
-    };
+        const onInstalled: {
+            addListener(callback: (details: { reason: string }) => void): void;
+        };
 
-    const onSuspend: {
-      addListener(callback: () => void): void;
-    };
-  }
+        const onStartup: {
+            addListener(callback: () => void): void;
+        };
 
-  namespace tabs {
-    interface Tab {
-      id?: number;
-      url?: string;
-      title?: string;
-      active: boolean;
-      audible?: boolean;
-      windowId: number;
+        const onSuspend: {
+            addListener(callback: () => void): void;
+        };
     }
 
-    function query(queryInfo: Record<string, unknown>): Promise<Tab[]>;
-    function create(createProperties: Record<string, unknown>): Promise<Tab>;
-    function update(tabId: number, updateProperties: Record<string, unknown>): Promise<Tab>;
-    function get(tabId: number): Promise<Tab>;
-    function getCurrent(): Promise<Tab>;
-    function remove(tabIds: number | number[]): Promise<void>;
-    function sendMessage(tabId: number, message: unknown): Promise<unknown>;
+    namespace tabs {
+        interface Tab {
+            id?: number;
+            url?: string;
+            title?: string;
+            active: boolean;
+            audible?: boolean;
+            windowId: number;
+        }
 
-    const onActivated: {
-      addListener(callback: (activeInfo: { tabId: number; windowId: number }) => void): void;
-    };
+        function query(queryInfo: Record<string, unknown>): Promise<Tab[]>;
+        function create(createProperties: Record<string, unknown>): Promise<Tab>;
+        function update(tabId: number, updateProperties: Record<string, unknown>): Promise<Tab>;
+        function get(tabId: number): Promise<Tab>;
+        function getCurrent(): Promise<Tab>;
+        function remove(tabIds: number | number[]): Promise<void>;
+        function sendMessage(tabId: number, message: unknown): Promise<unknown>;
 
-    const onUpdated: {
-      addListener(
-        callback: (
-          tabId: number,
-          changeInfo: Record<string, unknown>,
-          tab: Tab,
-        ) => void,
-      ): void;
-    };
+        const onActivated: {
+            addListener(callback: (activeInfo: { tabId: number; windowId: number }) => void): void;
+        };
 
-    const onRemoved: {
-      addListener(callback: (tabId: number, removeInfo: { windowId: number; isWindowClosing: boolean }) => void): void;
-    };
-  }
+        const onUpdated: {
+            addListener(
+                callback: (tabId: number, changeInfo: Record<string, unknown>, tab: Tab) => void,
+            ): void;
+        };
 
-  namespace windows {
-    const WINDOW_ID_NONE: number;
-
-    interface Window {
-      id?: number;
-      focused: boolean;
-      type?: string;
+        const onRemoved: {
+            addListener(
+                callback: (
+                    tabId: number,
+                    removeInfo: { windowId: number; isWindowClosing: boolean },
+                ) => void,
+            ): void;
+        };
     }
 
-    function getAll(getInfo?: Record<string, unknown>): Promise<Window[]>;
+    namespace windows {
+        const WINDOW_ID_NONE: number;
 
-    const onFocusChanged: {
-      addListener(callback: (windowId: number) => void): void;
-    };
-  }
+        interface Window {
+            id?: number;
+            focused: boolean;
+            type?: string;
+        }
 
-  namespace alarms {
-    interface Alarm {
-      name: string;
-      scheduledTime: number;
-      periodInMinutes?: number;
+        function getAll(getInfo?: Record<string, unknown>): Promise<Window[]>;
+
+        const onFocusChanged: {
+            addListener(callback: (windowId: number) => void): void;
+        };
     }
 
-    function create(name: string, alarmInfo: { delayInMinutes?: number; periodInMinutes?: number; when?: number }): void;
-    function clear(name: string): Promise<boolean>;
-    function clearAll(): Promise<boolean>;
-    function get(name: string): Promise<Alarm | undefined>;
-    function getAll(): Promise<Alarm[]>;
+    namespace alarms {
+        interface Alarm {
+            name: string;
+            scheduledTime: number;
+            periodInMinutes?: number;
+        }
 
-    const onAlarm: {
-      addListener(callback: (alarm: Alarm) => void): void;
-    };
-  }
+        function create(
+            name: string,
+            alarmInfo: { delayInMinutes?: number; periodInMinutes?: number; when?: number },
+        ): void;
+        function clear(name: string): Promise<boolean>;
+        function clearAll(): Promise<boolean>;
+        function get(name: string): Promise<Alarm | undefined>;
+        function getAll(): Promise<Alarm[]>;
 
-  namespace notifications {
-    interface CreateOptions {
-      type: 'basic';
-      iconUrl?: string;
-      title: string;
-      message: string;
+        const onAlarm: {
+            addListener(callback: (alarm: Alarm) => void): void;
+        };
     }
 
-    function create(notificationId: string, options: CreateOptions): Promise<string>;
-    function clear(notificationId: string): Promise<boolean>;
+    namespace notifications {
+        interface CreateOptions {
+            type: 'basic';
+            iconUrl?: string;
+            title: string;
+            message: string;
+        }
 
-    const onClicked: {
-      addListener(callback: (notificationId: string) => void): void;
-    };
-  }
+        function create(notificationId: string, options: CreateOptions): Promise<string>;
+        function clear(notificationId: string): Promise<boolean>;
 
-  namespace idle {
-    type IdleState = 'active' | 'idle' | 'locked';
+        const onClicked: {
+            addListener(callback: (notificationId: string) => void): void;
+        };
+    }
 
-    function queryState(detectionIntervalInSeconds: number): Promise<IdleState>;
-    function setDetectionInterval(intervalInSeconds: number): void;
+    namespace idle {
+        type IdleState = 'active' | 'idle' | 'locked';
 
-    const onStateChanged: {
-      addListener(callback: (newState: IdleState) => void): void;
-    };
-  }
+        function queryState(detectionIntervalInSeconds: number): Promise<IdleState>;
+        function setDetectionInterval(intervalInSeconds: number): void;
 
-  namespace action {
-    function setBadgeText(details: { text: string; tabId?: number }): Promise<void>;
-    function setBadgeBackgroundColor(details: { color: string | [number, number, number, number]; tabId?: number }): Promise<void>;
-  }
+        const onStateChanged: {
+            addListener(callback: (newState: IdleState) => void): void;
+        };
+    }
+
+    namespace action {
+        function setBadgeText(details: { text: string; tabId?: number }): Promise<void>;
+        function setBadgeBackgroundColor(details: {
+            color: string | [number, number, number, number];
+            tabId?: number;
+        }): Promise<void>;
+    }
 }

@@ -1,62 +1,64 @@
 <script lang="ts">
-  import type { GlobalSettings, NotificationRule } from '$lib/types';
-  import TimePicker from './TimePicker.svelte';
-  import NotificationRulesEditor from './NotificationRulesEditor.svelte';
+import type { GlobalSettings, NotificationRule } from '$lib/types';
+import NotificationRulesEditor from './NotificationRulesEditor.svelte';
+import TimePicker from './TimePicker.svelte';
 
-  interface Props {
+interface Props {
     settings: GlobalSettings;
     onsave: (settings: GlobalSettings) => void;
-  }
+}
 
-  let { settings, onsave }: Props = $props();
+let { settings, onsave }: Props = $props();
 
-  // Local editing state — initialized with defaults, synced from prop via $effect
-  let resetTime = $state('00:00');
-  let notificationsEnabled = $state(true);
-  let theme = $state<GlobalSettings['theme']>('system');
-  let notificationRules = $state<NotificationRule[]>([]);
-  let saving = $state(false);
-  let saved = $state(false);
+// Local editing state — initialized with defaults, synced from prop via $effect
+let resetTime = $state('00:00');
+let notificationsEnabled = $state(true);
+let theme = $state<GlobalSettings['theme']>('system');
+let notificationRules = $state<NotificationRule[]>([]);
+let saving = $state(false);
+let saved = $state(false);
 
-  // Sync local state when prop changes (initial load + after save)
-  $effect(() => {
+// Sync local state when prop changes (initial load + after save)
+$effect(() => {
     resetTime = settings.resetTime;
     notificationsEnabled = settings.notificationsEnabled;
     theme = settings.theme;
     notificationRules = settings.notificationRules ? [...settings.notificationRules] : [];
-  });
+});
 
-  let isDirty = $derived(
+let isDirty = $derived(
     resetTime !== settings.resetTime ||
-    notificationsEnabled !== settings.notificationsEnabled ||
-    theme !== settings.theme ||
-    JSON.stringify(notificationRules) !== JSON.stringify(settings.notificationRules ?? [])
-  );
+        notificationsEnabled !== settings.notificationsEnabled ||
+        theme !== settings.theme ||
+        JSON.stringify(notificationRules) !== JSON.stringify(settings.notificationRules ?? []),
+);
 
-  async function save() {
+async function save() {
     saving = true;
     onsave({
-      ...settings,
-      resetTime,
-      notificationsEnabled,
-      theme,
-      notificationRules: $state.snapshot(notificationRules) as NotificationRule[],
+        ...settings,
+        resetTime,
+        notificationsEnabled,
+        theme,
+        notificationRules: $state.snapshot(notificationRules) as NotificationRule[],
     });
     saving = false;
     saved = true;
-    setTimeout(() => { saved = false; }, 2000);
-  }
+    setTimeout(() => {
+        saved = false;
+    }, 2000);
+}
 
-  function revert() {
+function revert() {
     resetTime = settings.resetTime;
     notificationsEnabled = settings.notificationsEnabled;
     theme = settings.theme;
     notificationRules = settings.notificationRules ? [...settings.notificationRules] : [];
-  }
+}
 
-  function handleRulesChange(rules: NotificationRule[]) {
+function handleRulesChange(rules: NotificationRule[]) {
     notificationRules = rules;
-  }
+}
 </script>
 
 <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm" aria-label="General settings">

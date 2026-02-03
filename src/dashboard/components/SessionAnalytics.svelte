@@ -1,24 +1,24 @@
 <script lang="ts">
-  import type { SessionAnalyticsData } from '../dashboard-utils';
-  import { formatTimeRemaining } from '$lib/utils';
+import { formatTimeRemaining } from '$lib/utils';
+import type { SessionAnalyticsData } from '../dashboard-utils';
 
-  interface Props {
+interface Props {
     data: SessionAnalyticsData;
-  }
+}
 
-  let { data }: Props = $props();
+let { data }: Props = $props();
 
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  let maxHourSessions = $derived(Math.max(1, ...data.sessionsByHour));
-  let maxDaySessions = $derived(Math.max(1, ...data.sessionsByDay));
+let maxHourSessions = $derived(Math.max(1, ...data.sessionsByHour));
+let maxDaySessions = $derived(Math.max(1, ...data.sessionsByDay));
 
-  function formatHour(hour: number): string {
+function formatHour(hour: number): string {
     if (hour === 0) return '12a';
     if (hour === 12) return '12p';
     if (hour < 12) return `${hour}a`;
     return `${hour - 12}p`;
-  }
+}
 </script>
 
 <section aria-label="Session analytics">

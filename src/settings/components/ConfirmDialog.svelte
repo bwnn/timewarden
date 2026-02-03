@@ -1,14 +1,14 @@
 <script lang="ts">
-  interface Props {
+interface Props {
     open: boolean;
     title: string;
     message: string;
     confirmLabel?: string;
     onconfirm: () => void;
     oncancel: () => void;
-  }
+}
 
-  let { open, title, message, confirmLabel = 'Delete', onconfirm, oncancel }: Props = $props();
+let { open, title, message, confirmLabel = 'Delete', onconfirm, oncancel }: Props = $props();
 </script>
 
 {#if open}

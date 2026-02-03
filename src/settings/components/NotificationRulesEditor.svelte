@@ -1,106 +1,106 @@
 <script lang="ts">
-  import type { NotificationRule } from '$lib/types';
+import type { NotificationRule } from '$lib/types';
 
-  interface Props {
+interface Props {
     rules: NotificationRule[];
     onchange: (rules: NotificationRule[]) => void;
-  }
+}
 
-  let { rules, onchange }: Props = $props();
+let { rules, onchange }: Props = $props();
 
-  // -- Handlers -------------------------------------------------------
+// -- Handlers -------------------------------------------------------
 
-  function addRule() {
+function addRule() {
     const id = `rule-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const newRule: NotificationRule = {
-      id,
-      enabled: true,
-      type: 'percentage',
-      percentageUsed: 50,
+        id,
+        enabled: true,
+        type: 'percentage',
+        percentageUsed: 50,
     };
     onchange([...rules, newRule]);
-  }
+}
 
-  function removeRule(id: string) {
-    onchange(rules.filter(r => r.id !== id));
-  }
+function removeRule(id: string) {
+    onchange(rules.filter((r) => r.id !== id));
+}
 
-  function toggleRule(id: string) {
-    onchange(rules.map(r =>
-      r.id === id ? { ...r, enabled: !r.enabled } : r
-    ));
-  }
+function toggleRule(id: string) {
+    onchange(rules.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r)));
+}
 
-  function updateRuleType(id: string, type: 'percentage' | 'time') {
-    onchange(rules.map(r => {
-      if (r.id !== id) return r;
-      if (type === 'percentage') {
-        return { ...r, type, percentageUsed: 50, timeRemainingSeconds: undefined };
-      }
-      return { ...r, type, timeRemainingSeconds: 300, percentageUsed: undefined };
-    }));
-  }
+function updateRuleType(id: string, type: 'percentage' | 'time') {
+    onchange(
+        rules.map((r) => {
+            if (r.id !== id) return r;
+            if (type === 'percentage') {
+                return { ...r, type, percentageUsed: 50, timeRemainingSeconds: undefined };
+            }
+            return { ...r, type, timeRemainingSeconds: 300, percentageUsed: undefined };
+        }),
+    );
+}
 
-  function updateRuleValue(id: string, value: number) {
-    onchange(rules.map(r => {
-      if (r.id !== id) return r;
-      if (r.type === 'percentage') {
-        return { ...r, percentageUsed: Math.max(1, Math.min(100, value)) };
-      }
-      return { ...r, timeRemainingSeconds: Math.max(1, value) };
-    }));
-  }
+function updateRuleValue(id: string, value: number) {
+    onchange(
+        rules.map((r) => {
+            if (r.id !== id) return r;
+            if (r.type === 'percentage') {
+                return { ...r, percentageUsed: Math.max(1, Math.min(100, value)) };
+            }
+            return { ...r, timeRemainingSeconds: Math.max(1, value) };
+        }),
+    );
+}
 
-  function toggleCustomMessage(id: string) {
-    onchange(rules.map(r => {
-      if (r.id !== id) return r;
-      // Toggle: if title/message exist, clear them; otherwise set defaults
-      if (r.title != null || r.message != null) {
-        return { ...r, title: undefined, message: undefined };
-      }
-      return { ...r, title: 'TimeWarden — Running Low', message: '' };
-    }));
-  }
+function toggleCustomMessage(id: string) {
+    onchange(
+        rules.map((r) => {
+            if (r.id !== id) return r;
+            // Toggle: if title/message exist, clear them; otherwise set defaults
+            if (r.title != null || r.message != null) {
+                return { ...r, title: undefined, message: undefined };
+            }
+            return { ...r, title: 'TimeWarden — Running Low', message: '' };
+        }),
+    );
+}
 
-  function updateRuleTitle(id: string, title: string) {
-    onchange(rules.map(r =>
-      r.id === id ? { ...r, title } : r
-    ));
-  }
+function updateRuleTitle(id: string, title: string) {
+    onchange(rules.map((r) => (r.id === id ? { ...r, title } : r)));
+}
 
-  function updateRuleMessage(id: string, message: string) {
-    onchange(rules.map(r =>
-      r.id === id ? { ...r, message } : r
-    ));
-  }
+function updateRuleMessage(id: string, message: string) {
+    onchange(rules.map((r) => (r.id === id ? { ...r, message } : r)));
+}
 
-  // Format time remaining value for display as M:SS
-  function formatTimeValue(seconds: number): { minutes: number; secs: number } {
+// Format time remaining value for display as M:SS
+function formatTimeValue(seconds: number): { minutes: number; secs: number } {
     return {
-      minutes: Math.floor(seconds / 60),
-      secs: seconds % 60,
+        minutes: Math.floor(seconds / 60),
+        secs: seconds % 60,
     };
-  }
+}
 
-  function parseTimeInputs(minutes: number, secs: number): number {
+function parseTimeInputs(minutes: number, secs: number): number {
     return Math.max(1, minutes * 60 + secs);
-  }
+}
 
-  // Describe what a rule does in plain text
-  function describeRule(rule: NotificationRule): string {
+// Describe what a rule does in plain text
+function describeRule(rule: NotificationRule): string {
     if (rule.type === 'percentage' && rule.percentageUsed != null) {
-      const remaining = 100 - rule.percentageUsed;
-      return `Fires when ${remaining}% of daily limit remains`;
+        const remaining = 100 - rule.percentageUsed;
+        return `Fires when ${remaining}% of daily limit remains`;
     }
     if (rule.type === 'time' && rule.timeRemainingSeconds != null) {
-      const mins = Math.floor(rule.timeRemainingSeconds / 60);
-      const secs = rule.timeRemainingSeconds % 60;
-      if (mins > 0 && secs > 0) return `Fires with ${mins}m ${secs}s remaining`;
-      if (mins > 0) return `Fires with ${mins}m remaining`;
-      return `Fires with ${secs}s remaining`;
+        const mins = Math.floor(rule.timeRemainingSeconds / 60);
+        const secs = rule.timeRemainingSeconds % 60;
+        if (mins > 0 && secs > 0) return `Fires with ${mins}m ${secs}s remaining`;
+        if (mins > 0) return `Fires with ${mins}m remaining`;
+        return `Fires with ${secs}s remaining`;
     }
     return '';
-  }
+}
 </script>
 
 <div class="space-y-3">

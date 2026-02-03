@@ -1,45 +1,45 @@
 <script lang="ts">
-  import type { BehavioralInsightsData } from '../dashboard-utils';
-  import { formatTimeRemaining } from '$lib/utils';
+import { formatTimeRemaining } from '$lib/utils';
+import type { BehavioralInsightsData } from '../dashboard-utils';
 
-  interface Props {
+interface Props {
     data: BehavioralInsightsData;
-  }
+}
 
-  let { data }: Props = $props();
+let { data }: Props = $props();
 
-  let maxHourUsage = $derived(Math.max(1, ...data.usageByHour));
+let maxHourUsage = $derived(Math.max(1, ...data.usageByHour));
 
-  // Find peak usage hours (top 3)
-  let peakHours = $derived.by(() => {
+// Find peak usage hours (top 3)
+let peakHours = $derived.by(() => {
     const indexed = data.usageByHour.map((v, i) => ({ hour: i, seconds: v }));
     indexed.sort((a, b) => b.seconds - a.seconds);
     return indexed.slice(0, 3).filter((h) => h.seconds > 0);
-  });
+});
 
-  function formatHour(hour: number): string {
+function formatHour(hour: number): string {
     if (hour === 0) return '12:00 AM';
     if (hour === 12) return '12:00 PM';
     if (hour < 12) return `${hour}:00 AM`;
     return `${hour - 12}:00 PM`;
-  }
+}
 
-  function formatHourShort(hour: number): string {
+function formatHourShort(hour: number): string {
     if (hour === 0) return '12a';
     if (hour === 12) return '12p';
     if (hour < 12) return `${hour}a`;
     return `${hour - 12}p`;
-  }
+}
 
-  let maxAvg = $derived(Math.max(data.weekdayAvgSeconds, data.weekendAvgSeconds) || 1);
+let maxAvg = $derived(Math.max(data.weekdayAvgSeconds, data.weekendAvgSeconds) || 1);
 
-  // Weekday vs weekend comparison
-  let weekdayVsWeekend = $derived.by(() => {
+// Weekday vs weekend comparison
+let weekdayVsWeekend = $derived.by(() => {
     if (data.weekdayAvgSeconds === 0 && data.weekendAvgSeconds === 0) return 'equal';
     if (data.weekendAvgSeconds > data.weekdayAvgSeconds * 1.1) return 'weekend-heavy';
     if (data.weekdayAvgSeconds > data.weekendAvgSeconds * 1.1) return 'weekday-heavy';
     return 'equal';
-  });
+});
 </script>
 
 <section aria-label="Behavioral insights">

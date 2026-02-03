@@ -14,15 +14,15 @@
  * Returns null if the URL is invalid or not http/https.
  */
 export function extractHostname(url: string): string | null {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      return null;
+    try {
+        const parsed = new URL(url);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            return null;
+        }
+        return parsed.hostname;
+    } catch {
+        return null;
     }
-    return parsed.hostname;
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -33,20 +33,20 @@ export function extractHostname(url: string): string | null {
  * A www-prefixed configured domain (e.g. "www.example.com") matches only itself.
  */
 export function matchDomain(url: string, trackedDomains: string[]): string | null {
-  const hostname = extractHostname(url);
-  if (!hostname) return null;
+    const hostname = extractHostname(url);
+    if (!hostname) return null;
 
-  for (const domain of trackedDomains) {
-    // Exact match always works
-    if (hostname === domain) return domain;
+    for (const domain of trackedDomains) {
+        // Exact match always works
+        if (hostname === domain) return domain;
 
-    // Non-www config also matches the www. variant of the hostname
-    if (!domain.startsWith('www.') && hostname === 'www.' + domain) {
-      return domain;
+        // Non-www config also matches the www. variant of the hostname
+        if (!domain.startsWith('www.') && hostname === `www.${domain}`) {
+            return domain;
+        }
     }
-  }
 
-  return null;
+    return null;
 }
 
 /**
@@ -54,24 +54,25 @@ export function matchDomain(url: string, trackedDomains: string[]): string | nul
  * Must be a bare hostname: no protocol, no path, no port.
  */
 export function isValidDomain(domain: string): boolean {
-  // Must not be empty
-  if (!domain || domain.trim().length === 0) return false;
+    // Must not be empty
+    if (!domain || domain.trim().length === 0) return false;
 
-  // Must not contain protocol
-  if (domain.includes('://')) return false;
+    // Must not contain protocol
+    if (domain.includes('://')) return false;
 
-  // Must not contain path, query, or fragment
-  if (domain.includes('/') || domain.includes('?') || domain.includes('#')) return false;
+    // Must not contain path, query, or fragment
+    if (domain.includes('/') || domain.includes('?') || domain.includes('#')) return false;
 
-  // Must not contain port
-  if (domain.includes(':')) return false;
+    // Must not contain port
+    if (domain.includes(':')) return false;
 
-  // Must not contain spaces
-  if (domain.includes(' ')) return false;
+    // Must not contain spaces
+    if (domain.includes(' ')) return false;
 
-  // Basic hostname validation: at least one dot, valid characters
-  const hostnameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/;
-  return hostnameRegex.test(domain);
+    // Basic hostname validation: at least one dot, valid characters
+    const hostnameRegex =
+        /^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/;
+    return hostnameRegex.test(domain);
 }
 
 /**
@@ -87,14 +88,14 @@ export function isValidDomain(domain: string): boolean {
  * Returns the normalized domain and whether it starts with www.
  */
 export function normalizeDomain(input: string): { domain: string; hasWww: boolean } {
-  let domain = input.trim().toLowerCase();
+    let domain = input.trim().toLowerCase();
 
-  // Remove trailing dot (DNS root)
-  while (domain.endsWith('.')) {
-    domain = domain.slice(0, -1);
-  }
+    // Remove trailing dot (DNS root)
+    while (domain.endsWith('.')) {
+        domain = domain.slice(0, -1);
+    }
 
-  const hasWww = domain.startsWith('www.');
+    const hasWww = domain.startsWith('www.');
 
-  return { domain, hasWww };
+    return { domain, hasWww };
 }

@@ -1,73 +1,73 @@
 <script lang="ts">
-  import type { StatusResponse } from '$lib/types';
-  import { formatTimeRemaining, formatTimePrecise } from '$lib/utils';
-  import ProgressBar from './ProgressBar.svelte';
-  import PauseButton from './PauseButton.svelte';
+import type { StatusResponse } from '$lib/types';
+import { formatTimePrecise, formatTimeRemaining } from '$lib/utils';
+import PauseButton from './PauseButton.svelte';
+import ProgressBar from './ProgressBar.svelte';
 
-  interface Props {
+interface Props {
     status: StatusResponse;
     onpause: () => void;
-  }
+}
 
-  let { status, onpause }: Props = $props();
+let { status, onpause }: Props = $props();
 
-  let trackingLabel = $derived(
+let trackingLabel = $derived(
     status.isInGracePeriod
-      ? 'Grace Period'
-      : status.isPaused
-        ? 'Paused'
-        : status.trackingReason === 'focused'
-          ? 'Active'
-          : status.trackingReason === 'audible'
-            ? 'Audio playing'
-            : 'Idle'
-  );
+        ? 'Grace Period'
+        : status.isPaused
+          ? 'Paused'
+          : status.trackingReason === 'focused'
+            ? 'Active'
+            : status.trackingReason === 'audible'
+              ? 'Audio playing'
+              : 'Idle',
+);
 
-  let trackingColorClass = $derived(
+let trackingColorClass = $derived(
     status.isInGracePeriod
-      ? 'text-red-600 dark:text-red-400'
-      : status.isPaused
-        ? 'text-amber-600 dark:text-amber-400'
-        : status.isTracking
-          ? 'text-green-600 dark:text-green-400'
-          : 'text-gray-500 dark:text-gray-400'
-  );
+        ? 'text-red-600 dark:text-red-400'
+        : status.isPaused
+          ? 'text-amber-600 dark:text-amber-400'
+          : status.isTracking
+            ? 'text-green-600 dark:text-green-400'
+            : 'text-gray-500 dark:text-gray-400',
+);
 
-  /** The large displayed time: grace remaining, pause remaining, or daily remaining */
-  let displayTime = $derived(
+/** The large displayed time: grace remaining, pause remaining, or daily remaining */
+let displayTime = $derived(
     status.isInGracePeriod
-      ? status.graceRemainingSeconds
-      : status.isPaused
-        ? status.pauseRemainingSeconds
-        : status.timeRemainingSeconds
-  );
+        ? status.graceRemainingSeconds
+        : status.isPaused
+          ? status.pauseRemainingSeconds
+          : status.timeRemainingSeconds,
+);
 
-  /** Label below the large timer */
-  let displayLabel = $derived(
+/** Label below the large timer */
+let displayLabel = $derived(
     status.isInGracePeriod
-      ? 'Grace period — page will be blocked'
-      : status.isPaused
-        ? 'Pause time remaining'
-        : `${formatTimeRemaining(status.timeRemainingSeconds)} remaining`
-  );
+        ? 'Grace period — page will be blocked'
+        : status.isPaused
+          ? 'Pause time remaining'
+          : `${formatTimeRemaining(status.timeRemainingSeconds)} remaining`,
+);
 
-  /** Accent border/ring class for the timer section */
-  let timerAccentClass = $derived(
+/** Accent border/ring class for the timer section */
+let timerAccentClass = $derived(
     status.isInGracePeriod
-      ? 'ring-2 ring-red-400/50 bg-red-50 dark:bg-red-950/30'
-      : status.isPaused
-        ? 'ring-2 ring-amber-400/50 bg-amber-50 dark:bg-amber-950/30'
-        : ''
-  );
+        ? 'ring-2 ring-red-400/50 bg-red-50 dark:bg-red-950/30'
+        : status.isPaused
+          ? 'ring-2 ring-amber-400/50 bg-amber-50 dark:bg-amber-950/30'
+          : '',
+);
 
-  /** Text color class for the large timer */
-  let timerTextClass = $derived(
+/** Text color class for the large timer */
+let timerTextClass = $derived(
     status.isInGracePeriod
-      ? 'text-red-600 dark:text-red-400'
-      : status.isPaused
-        ? 'text-amber-700 dark:text-amber-300'
-        : 'text-gray-900 dark:text-gray-100'
-  );
+        ? 'text-red-600 dark:text-red-400'
+        : status.isPaused
+          ? 'text-amber-700 dark:text-amber-300'
+          : 'text-gray-900 dark:text-gray-100',
+);
 </script>
 
 <div class="space-y-3" role="region" aria-label="Current domain status for {status.domain}">

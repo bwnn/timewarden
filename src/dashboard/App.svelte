@@ -1,123 +1,121 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
-  import { getDashboardData, getSettings } from '$lib/messaging';
-  import type { DailyUsage } from '$lib/types';
-  import { initTheme } from '$lib/theme';
-  import {
+import { onDestroy, onMount } from 'svelte';
+import { getDashboardData, getSettings } from '$lib/messaging';
+import { initTheme } from '$lib/theme';
+import type { DailyUsage } from '$lib/types';
+import BehavioralInsights from './components/BehavioralInsights.svelte';
+import BlockingStats from './components/BlockingStats.svelte';
+
+import DateRangeSelector from './components/DateRangeSelector.svelte';
+import DomainBreakdown from './components/DomainBreakdown.svelte';
+import HistoricalChart from './components/HistoricalChart.svelte';
+import SessionAnalytics from './components/SessionAnalytics.svelte';
+import TodayOverview from './components/TodayOverview.svelte';
+import type { DaySummary } from './dashboard-utils';
+import {
+    aggregateByDomain,
+    buildDaySummaries,
+    computeBehavioralInsights,
+    computeBlockingStats,
+    computeSessionAnalytics,
+    fillDateGaps,
     filterByRange,
     getTodayUsage,
-    buildDaySummaries,
-    fillDateGaps,
     getUniqueDomains,
-    aggregateByDomain,
-    computeSessionAnalytics,
-    computeBlockingStats,
-    computeBehavioralInsights,
-  } from './dashboard-utils';
-  import type { DaySummary } from './dashboard-utils';
+} from './dashboard-utils';
 
-  import DateRangeSelector from './components/DateRangeSelector.svelte';
-  import TodayOverview from './components/TodayOverview.svelte';
-  import HistoricalChart from './components/HistoricalChart.svelte';
-  import DomainBreakdown from './components/DomainBreakdown.svelte';
-  import SessionAnalytics from './components/SessionAnalytics.svelte';
-  import BlockingStats from './components/BlockingStats.svelte';
-  import BehavioralInsights from './components/BehavioralInsights.svelte';
+// ============================================================
+// State
+// ============================================================
 
-  // ============================================================
-  // State
-  // ============================================================
+let loading = $state(true);
+let error = $state<string | null>(null);
+let range = $state<'7d' | '14d' | '30d'>('7d');
+let cleanupTheme: (() => void) | null = null;
 
-  let loading = $state(true);
-  let error = $state<string | null>(null);
-  let range = $state<'7d' | '14d' | '30d'>('7d');
-  let cleanupTheme: (() => void) | null = null;
+/** Polling interval for live data refresh */
+let pollInterval: ReturnType<typeof setInterval> | null = null;
 
-  /** Polling interval for live data refresh */
-  let pollInterval: ReturnType<typeof setInterval> | null = null;
+// Raw data from background
+let allUsage = $state<DailyUsage[]>([]);
 
-  // Raw data from background
-  let allUsage = $state<DailyUsage[]>([]);
+// Active section for scroll-based navigation
+let activeSection = $state('overview');
 
-  // Active section for scroll-based navigation
-  let activeSection = $state('overview');
+// ============================================================
+// Derived data
+// ============================================================
 
-  // ============================================================
-  // Derived data
-  // ============================================================
-
-  let filteredUsage = $derived(filterByRange(allUsage, range));
-  let todayData = $derived.by((): DaySummary | null => {
+let filteredUsage = $derived(filterByRange(allUsage, range));
+let todayData = $derived.by((): DaySummary | null => {
     const today = getTodayUsage(allUsage);
     if (!today) return null;
     const summaries = buildDaySummaries([today]);
     return summaries[0] ?? null;
-  });
+});
 
-  let daySummaries = $derived(buildDaySummaries(filteredUsage));
-  let filledDays = $derived(fillDateGaps(daySummaries, range));
-  let chartDomains = $derived(getUniqueDomains(filteredUsage));
-  let domainAggregates = $derived(aggregateByDomain(filteredUsage));
-  let sessionData = $derived(computeSessionAnalytics(filteredUsage));
-  let blockingData = $derived(computeBlockingStats(filteredUsage));
-  let insightsData = $derived(computeBehavioralInsights(filteredUsage));
+let daySummaries = $derived(buildDaySummaries(filteredUsage));
+let filledDays = $derived(fillDateGaps(daySummaries, range));
+let chartDomains = $derived(getUniqueDomains(filteredUsage));
+let domainAggregates = $derived(aggregateByDomain(filteredUsage));
+let sessionData = $derived(computeSessionAnalytics(filteredUsage));
+let blockingData = $derived(computeBlockingStats(filteredUsage));
+let insightsData = $derived(computeBehavioralInsights(filteredUsage));
 
-  // Summary cards
-  let totalTimeSeconds = $derived(
+// Summary cards
+let totalTimeSeconds = $derived(
     filteredUsage.reduce((sum, day) => {
-      return sum + day.domains.reduce((ds, d) => ds + d.timeSpentSeconds, 0);
-    }, 0)
-  );
+        return sum + day.domains.reduce((ds, d) => ds + d.timeSpentSeconds, 0);
+    }, 0),
+);
 
-  let domainsAtLimit = $derived(
+let domainsAtLimit = $derived(
     filteredUsage.reduce((count, day) => {
-      return count + day.domains.filter((d) => d.blocked).length;
-    }, 0)
-  );
+        return count + day.domains.filter((d) => d.blocked).length;
+    }, 0),
+);
 
-  let mostUsedDomain = $derived(
-    domainAggregates.length > 0 ? domainAggregates[0] : null
-  );
+let mostUsedDomain = $derived(domainAggregates.length > 0 ? domainAggregates[0] : null);
 
-  // ============================================================
-  // Loading
-  // ============================================================
+// ============================================================
+// Loading
+// ============================================================
 
-  async function loadData() {
+async function loadData() {
     try {
-      loading = true;
-      error = null;
-      const data = await getDashboardData(range);
-      allUsage = data.usage;
+        loading = true;
+        error = null;
+        const data = await getDashboardData(range);
+        allUsage = data.usage;
     } catch (err) {
-      error = err instanceof Error ? err.message : 'Failed to load dashboard data';
+        error = err instanceof Error ? err.message : 'Failed to load dashboard data';
     } finally {
-      loading = false;
+        loading = false;
     }
-  }
+}
 
-  /**
-   * Silent refresh — re-fetches data without resetting the loading state.
-   * Used by the polling interval so the UI doesn't flash loading indicators.
-   */
-  async function silentRefresh() {
+/**
+ * Silent refresh — re-fetches data without resetting the loading state.
+ * Used by the polling interval so the UI doesn't flash loading indicators.
+ */
+async function silentRefresh() {
     // Only refresh while the page is visible to avoid wasting resources
     if (document.visibilityState !== 'visible') return;
     try {
-      const data = await getDashboardData(range);
-      allUsage = data.usage;
+        const data = await getDashboardData(range);
+        allUsage = data.usage;
     } catch {
-      // Silently ignore — next poll will retry
+        // Silently ignore — next poll will retry
     }
-  }
+}
 
-  onMount(async () => {
+onMount(async () => {
     // Initialize theme
     try {
-      const settings = await getSettings();
-      cleanupTheme = initTheme(settings.theme);
+        const settings = await getSettings();
+        cleanupTheme = initTheme(settings.theme);
     } catch {
-      cleanupTheme = initTheme('system');
+        cleanupTheme = initTheme('system');
     }
 
     await loadData();
@@ -125,49 +123,49 @@
     // Poll every 5 seconds for live data updates (especially TodayOverview
     // which shows time remaining that should count down in near-real-time)
     pollInterval = setInterval(silentRefresh, 5000);
-  });
+});
 
-  onDestroy(() => {
+onDestroy(() => {
     if (pollInterval) {
-      clearInterval(pollInterval);
-      pollInterval = null;
+        clearInterval(pollInterval);
+        pollInterval = null;
     }
     if (cleanupTheme) cleanupTheme();
-  });
+});
 
-  function handleRangeChange(newRange: '7d' | '14d' | '30d') {
+function handleRangeChange(newRange: '7d' | '14d' | '30d') {
     range = newRange;
-  }
+}
 
-  // ============================================================
-  // Navigation
-  // ============================================================
+// ============================================================
+// Navigation
+// ============================================================
 
-  const sections = [
+const sections = [
     { id: 'overview', label: 'Overview' },
     { id: 'chart', label: 'Daily Usage' },
     { id: 'domains', label: 'Domains' },
     { id: 'sessions', label: 'Sessions' },
     { id: 'blocking', label: 'Blocking' },
     { id: 'insights', label: 'Insights' },
-  ];
+];
 
-  function scrollToSection(id: string) {
+function scrollToSection(id: string) {
     activeSection = id;
     const el = document.getElementById(`section-${id}`);
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-  }
+}
 
-  function formatTotalTime(seconds: number): string {
+function formatTotalTime(seconds: number): string {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
     if (hours > 0) return `${hours}h`;
     if (minutes > 0) return `${minutes}m`;
     return '0m';
-  }
+}
 </script>
 
 <main class="min-h-screen bg-gray-50 dark:bg-gray-900">

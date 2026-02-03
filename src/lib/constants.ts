@@ -5,28 +5,28 @@ export const MAX_USAGE_DAYS = 30;
 
 /** Default notification rules for new installs and global settings */
 export const DEFAULT_NOTIFICATION_RULES: NotificationRule[] = [
-  {
-    id: 'default-10pct',
-    enabled: true,
-    type: 'percentage',
-    percentageUsed: 90, // Fires when 90% used = 10% remaining
-  },
+    {
+        id: 'default-10pct',
+        enabled: true,
+        type: 'percentage',
+        percentageUsed: 90, // Fires when 90% used = 10% remaining
+    },
 ];
 
 /** Default global settings */
 export const DEFAULT_SETTINGS: GlobalSettings = {
-  resetTime: '00:00',
-  notificationsEnabled: true,
-  gracePeriodSeconds: 60,
-  theme: 'system',
-  notificationRules: DEFAULT_NOTIFICATION_RULES,
+    resetTime: '00:00',
+    notificationsEnabled: true,
+    gracePeriodSeconds: 60,
+    theme: 'system',
+    notificationRules: DEFAULT_NOTIFICATION_RULES,
 };
 
 /** Default storage state for a fresh install */
 export const DEFAULT_STORAGE: StorageSchema = {
-  domains: [],
-  usage: [],
-  settings: { ...DEFAULT_SETTINGS },
+    domains: [],
+    usage: [],
+    settings: { ...DEFAULT_SETTINGS },
 };
 
 /** Default pause allowance in seconds for new domains (5 minutes) */
@@ -46,10 +46,10 @@ export const IDLE_THRESHOLD_SECONDS = 60;
 
 /** Alarm name prefixes */
 export const ALARM_PREFIX = {
-  /** Flexible notification rule alarm: "notify-rule-{ruleId}::{domain}" */
-  NOTIFY_RULE: 'notify-rule-',
-  LIMIT_REACHED: 'limit-',
-  RESET: 'reset-',
+    /** Flexible notification rule alarm: "notify-rule-{ruleId}::{domain}" */
+    NOTIFY_RULE: 'notify-rule-',
+    LIMIT_REACHED: 'limit-',
+    RESET: 'reset-',
 } as const;
 
 /** Separator between rule ID and domain in notification alarm names */

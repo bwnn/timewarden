@@ -1,18 +1,18 @@
 <script lang="ts">
-  import type { DomainConfig, DayOfWeek, DayOverride, NotificationRule } from '$lib/types';
-  import { isValidDomain, normalizeDomain } from '$lib/domain-matcher';
-  import { formatLimitSeconds } from '$lib/utils';
-  import {
+import {
     DEFAULT_DAILY_LIMIT_SECONDS,
     DEFAULT_PAUSE_ALLOWANCE_SECONDS,
-    MIN_LIMIT_SECONDS,
     MAX_LIMIT_SECONDS,
-  } from '$lib/constants';
-  import DayOverrideGrid from './DayOverrideGrid.svelte';
-  import TimePicker from './TimePicker.svelte';
-  import NotificationRulesEditor from './NotificationRulesEditor.svelte';
+    MIN_LIMIT_SECONDS,
+} from '$lib/constants';
+import { isValidDomain, normalizeDomain } from '$lib/domain-matcher';
+import type { DayOfWeek, DayOverride, DomainConfig, NotificationRule } from '$lib/types';
+import { formatLimitSeconds } from '$lib/utils';
+import DayOverrideGrid from './DayOverrideGrid.svelte';
+import NotificationRulesEditor from './NotificationRulesEditor.svelte';
+import TimePicker from './TimePicker.svelte';
 
-  interface Props {
+interface Props {
     mode: 'add' | 'edit';
     initialConfig?: DomainConfig;
     existingDomains?: string[];
@@ -20,9 +20,9 @@
     lockedDay?: DayOfWeek | null;
     onsave: (config: DomainConfig) => Promise<void>;
     oncancel: () => void;
-  }
+}
 
-  let {
+let {
     mode,
     initialConfig,
     existingDomains = [],
@@ -30,11 +30,11 @@
     lockedDay = null,
     onsave,
     oncancel,
-  }: Props = $props();
+}: Props = $props();
 
-  // -- Internal State ------------------------------------------------
+// -- Internal State ------------------------------------------------
 
-  const defaultNewConfig: DomainConfig = {
+const defaultNewConfig: DomainConfig = {
     domain: '',
     dailyLimitSeconds: DEFAULT_DAILY_LIMIT_SECONDS,
     enabled: true,
@@ -43,167 +43,170 @@
     resetTime: null,
     dayOverrides: {},
     useGlobalNotifications: true,
-  };
+};
 
-  function cloneConfig(c: DomainConfig): DomainConfig {
+function cloneConfig(c: DomainConfig): DomainConfig {
     return JSON.parse(JSON.stringify(c));
-  }
+}
 
-  // Intentionally capture initial prop values only — the component owns its own state copy.
-  // svelte-ignore state_referenced_locally
-  let config = $state<DomainConfig>(
+// Intentionally capture initial prop values only — the component owns its own state copy.
+// svelte-ignore state_referenced_locally
+let config = $state<DomainConfig>(
     initialConfig
-      ? cloneConfig($state.snapshot(initialConfig) as DomainConfig)
-      : cloneConfig(defaultNewConfig)
-  );
+        ? cloneConfig($state.snapshot(initialConfig) as DomainConfig)
+        : cloneConfig(defaultNewConfig),
+);
 
-  // Snapshot of the original for dirty detection / revert (edit mode only)
-  // svelte-ignore state_referenced_locally
-  let originalSnapshot: string | null =
-    initialConfig ? JSON.stringify($state.snapshot(initialConfig)) : null;
-  // svelte-ignore state_referenced_locally
-  let originalConfig: DomainConfig | null =
-    initialConfig ? cloneConfig($state.snapshot(initialConfig) as DomainConfig) : null;
+// Snapshot of the original for dirty detection / revert (edit mode only)
+// svelte-ignore state_referenced_locally
+let originalSnapshot: string | null = initialConfig
+    ? JSON.stringify($state.snapshot(initialConfig))
+    : null;
+// svelte-ignore state_referenced_locally
+let originalConfig: DomainConfig | null = initialConfig
+    ? cloneConfig($state.snapshot(initialConfig) as DomainConfig)
+    : null;
 
-  // svelte-ignore state_referenced_locally
-  let domainInput = $state(mode === 'add' ? '' : config.domain);
-  // svelte-ignore state_referenced_locally
-  let showAdvanced = $state(mode === 'edit');
-  let error = $state('');
-  let saveStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
+// svelte-ignore state_referenced_locally
+let domainInput = $state(mode === 'add' ? '' : config.domain);
+// svelte-ignore state_referenced_locally
+let showAdvanced = $state(mode === 'edit');
+let error = $state('');
+let saveStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
-  // -- Derived -------------------------------------------------------
+// -- Derived -------------------------------------------------------
 
-  let limitHours = $derived(Math.floor(config.dailyLimitSeconds / 3600));
-  let limitMinutes = $derived(Math.floor((config.dailyLimitSeconds % 3600) / 60));
-  let limitSeconds = $derived(config.dailyLimitSeconds % 60);
+let limitHours = $derived(Math.floor(config.dailyLimitSeconds / 3600));
+let limitMinutes = $derived(Math.floor((config.dailyLimitSeconds % 3600) / 60));
+let limitSeconds = $derived(config.dailyLimitSeconds % 60);
 
-  let useCustomReset = $derived(config.resetTime !== null);
-  let effectiveResetTime = $derived(config.resetTime ?? globalResetTime);
+let useCustomReset = $derived(config.resetTime !== null);
+let effectiveResetTime = $derived(config.resetTime ?? globalResetTime);
 
-  let isDirty = $derived(
+let isDirty = $derived(
     originalSnapshot !== null
-      ? JSON.stringify($state.snapshot(config)) !== originalSnapshot
-      : false
-  );
+        ? JSON.stringify($state.snapshot(config)) !== originalSnapshot
+        : false,
+);
 
-  // Domain hint (add mode)
-  let domainHint = $derived.by(() => {
+// Domain hint (add mode)
+let domainHint = $derived.by(() => {
     if (mode !== 'add') return '';
     const trimmed = domainInput.trim();
     if (!trimmed) return '';
     const { hasWww, domain } = normalizeDomain(trimmed);
     if (!isValidDomain(domain)) return '';
     if (hasWww) {
-      const bare = domain.slice(4);
-      return `Will match ${domain} only. Use "${bare}" to match both ${bare} and ${domain}.`;
+        const bare = domain.slice(4);
+        return `Will match ${domain} only. Use "${bare}" to match both ${bare} and ${domain}.`;
     }
     return `Will match both ${domain} and www.${domain}.`;
-  });
+});
 
-  // -- Handlers: Field Changes ---------------------------------------
+// -- Handlers: Field Changes ---------------------------------------
 
-  function handleLimitChange(newHours: number, newMins: number, newSecs: number) {
+function handleLimitChange(newHours: number, newMins: number, newSecs: number) {
     const total = Math.max(
-      MIN_LIMIT_SECONDS,
-      Math.min(MAX_LIMIT_SECONDS, newHours * 3600 + newMins * 60 + newSecs)
+        MIN_LIMIT_SECONDS,
+        Math.min(MAX_LIMIT_SECONDS, newHours * 3600 + newMins * 60 + newSecs),
     );
     config.dailyLimitSeconds = total;
-  }
+}
 
-  function handleResetToggle(useCustom: boolean) {
+function handleResetToggle(useCustom: boolean) {
     config.resetTime = useCustom ? globalResetTime : null;
-  }
+}
 
-  function handleResetChange(time: string) {
+function handleResetChange(time: string) {
     config.resetTime = time;
-  }
+}
 
-  function handlePauseChange(value: number) {
+function handlePauseChange(value: number) {
     config.pauseAllowanceSeconds = Math.max(0, Math.min(3600, value));
-  }
+}
 
-  function handleDayOverridesChange(overrides: Partial<Record<DayOfWeek, DayOverride>>) {
+function handleDayOverridesChange(overrides: Partial<Record<DayOfWeek, DayOverride>>) {
     config.dayOverrides = overrides;
-  }
+}
 
-  function handleNotificationModeChange(useGlobal: boolean) {
+function handleNotificationModeChange(useGlobal: boolean) {
     config.useGlobalNotifications = useGlobal;
     if (!useGlobal && !config.notificationRules) {
-      // Initialize with a copy of a sensible default
-      config.notificationRules = [
-        {
-          id: 'default-10pct',
-          enabled: true,
-          type: 'percentage' as const,
-          percentageUsed: 90,
-        },
-      ];
+        // Initialize with a copy of a sensible default
+        config.notificationRules = [
+            {
+                id: 'default-10pct',
+                enabled: true,
+                type: 'percentage' as const,
+                percentageUsed: 90,
+            },
+        ];
     }
-  }
+}
 
-  function handleNotificationRulesChange(rules: NotificationRule[]) {
+function handleNotificationRulesChange(rules: NotificationRule[]) {
     config.notificationRules = rules;
-  }
+}
 
-  // -- Handlers: Actions ---------------------------------------------
+// -- Handlers: Actions ---------------------------------------------
 
-  function handleRevert() {
+function handleRevert() {
     if (originalConfig) {
-      config = cloneConfig(originalConfig);
+        config = cloneConfig(originalConfig);
     }
-  }
+}
 
-  async function handleSave() {
+async function handleSave() {
     error = '';
 
     // Validate domain in add mode
     if (mode === 'add') {
-      if (!domainInput.trim()) {
-        error = 'Please enter a domain.';
-        return;
-      }
-      const { domain } = normalizeDomain(domainInput);
-      if (!isValidDomain(domain)) {
-        error = 'Invalid domain. Enter a hostname like "youtube.com" (no http://, paths, or ports).';
-        return;
-      }
-      if (existingDomains.includes(domain)) {
-        error = `"${domain}" is already being tracked.`;
-        return;
-      }
-      config.domain = domain;
-      config.createdAt = new Date().toISOString();
+        if (!domainInput.trim()) {
+            error = 'Please enter a domain.';
+            return;
+        }
+        const { domain } = normalizeDomain(domainInput);
+        if (!isValidDomain(domain)) {
+            error =
+                'Invalid domain. Enter a hostname like "youtube.com" (no http://, paths, or ports).';
+            return;
+        }
+        if (existingDomains.includes(domain)) {
+            error = `"${domain}" is already being tracked.`;
+            return;
+        }
+        config.domain = domain;
+        config.createdAt = new Date().toISOString();
     }
 
     // Validate limit
     if (config.dailyLimitSeconds < MIN_LIMIT_SECONDS) {
-      error = 'Limit must be at least 1 second.';
-      return;
+        error = 'Limit must be at least 1 second.';
+        return;
     }
     if (config.dailyLimitSeconds > MAX_LIMIT_SECONDS) {
-      error = 'Limit cannot exceed 24 hours.';
-      return;
+        error = 'Limit cannot exceed 24 hours.';
+        return;
     }
 
     saveStatus = 'saving';
     try {
-      await onsave($state.snapshot(config) as DomainConfig);
-      if (mode === 'edit') {
-        // Update baseline for dirty tracking after successful save
-        const snapshot = $state.snapshot(config) as DomainConfig;
-        originalSnapshot = JSON.stringify(snapshot);
-        originalConfig = cloneConfig(snapshot);
-        saveStatus = 'saved';
-        setTimeout(() => {
-          if (saveStatus === 'saved') saveStatus = 'idle';
-        }, 2000);
-      }
-      // In add mode, the parent will unmount this component (showAddForm = false)
+        await onsave($state.snapshot(config) as DomainConfig);
+        if (mode === 'edit') {
+            // Update baseline for dirty tracking after successful save
+            const snapshot = $state.snapshot(config) as DomainConfig;
+            originalSnapshot = JSON.stringify(snapshot);
+            originalConfig = cloneConfig(snapshot);
+            saveStatus = 'saved';
+            setTimeout(() => {
+                if (saveStatus === 'saved') saveStatus = 'idle';
+            }, 2000);
+        }
+        // In add mode, the parent will unmount this component (showAddForm = false)
     } catch {
-      saveStatus = 'error';
+        saveStatus = 'error';
     }
-  }
+}
 </script>
 
 <div

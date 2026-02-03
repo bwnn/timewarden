@@ -1,16 +1,16 @@
 <script lang="ts">
-  import type { DomainAggregate } from '../dashboard-utils';
-  import { formatTimeRemaining } from '$lib/utils';
-  import { getDomainColor } from '../dashboard-utils';
+import { formatTimeRemaining } from '$lib/utils';
+import type { DomainAggregate } from '../dashboard-utils';
+import { getDomainColor } from '../dashboard-utils';
 
-  interface Props {
+interface Props {
     aggregates: DomainAggregate[];
     range: '7d' | '14d' | '30d';
-  }
+}
 
-  let { aggregates, range }: Props = $props();
+let { aggregates, range }: Props = $props();
 
-  let rangeLabel = $derived(range === '7d' ? '7 days' : range === '14d' ? '14 days' : '30 days');
+let rangeLabel = $derived(range === '7d' ? '7 days' : range === '14d' ? '14 days' : '30 days');
 </script>
 
 <section aria-label="Domain breakdown">

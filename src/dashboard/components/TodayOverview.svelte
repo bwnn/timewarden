@@ -1,28 +1,39 @@
 <script lang="ts">
-  import type { DaySummary } from '../dashboard-utils';
-  import { formatTimeRemaining, formatLimitSeconds, getUsagePercent, getProgressColor } from '$lib/utils';
+import {
+    formatLimitSeconds,
+    formatTimeRemaining,
+    getProgressColor,
+    getUsagePercent,
+} from '$lib/utils';
+import type { DaySummary } from '../dashboard-utils';
 
-  interface Props {
+interface Props {
     today: DaySummary | null;
-  }
+}
 
-  let { today }: Props = $props();
+let { today }: Props = $props();
 
-  function getBarColor(color: 'green' | 'yellow' | 'red'): string {
+function getBarColor(color: 'green' | 'yellow' | 'red'): string {
     switch (color) {
-      case 'green': return 'bg-emerald-500';
-      case 'yellow': return 'bg-amber-500';
-      case 'red': return 'bg-red-500';
+        case 'green':
+            return 'bg-emerald-500';
+        case 'yellow':
+            return 'bg-amber-500';
+        case 'red':
+            return 'bg-red-500';
     }
-  }
+}
 
-  function getBarBgColor(color: 'green' | 'yellow' | 'red'): string {
+function getBarBgColor(color: 'green' | 'yellow' | 'red'): string {
     switch (color) {
-      case 'green': return 'bg-emerald-100 dark:bg-emerald-900/40';
-      case 'yellow': return 'bg-amber-100 dark:bg-amber-900/40';
-      case 'red': return 'bg-red-100 dark:bg-red-900/40';
+        case 'green':
+            return 'bg-emerald-100 dark:bg-emerald-900/40';
+        case 'yellow':
+            return 'bg-amber-100 dark:bg-amber-900/40';
+        case 'red':
+            return 'bg-red-100 dark:bg-red-900/40';
     }
-  }
+}
 </script>
 
 <section aria-label="Today's overview">
