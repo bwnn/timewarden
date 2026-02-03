@@ -43,6 +43,7 @@
   let editConfig = $state<DomainConfig | null>(null);
   let originalEditConfig = $state<DomainConfig | null>(null);
   let showDeleteConfirm = $state(false);
+  let deletingDomain = $state<string | null>(null);
   let saveStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   // -- Derived -------------------------------------------------------
@@ -259,13 +260,6 @@
     }
   }
 
-  function handleCancelEdit() {
-    selectedDomain = null;
-    editConfig = null;
-    originalEditConfig = null;
-    saveStatus = 'idle';
-  }
-
   function handleRevertEdit() {
     if (originalEditConfig) {
       editConfig = $state.snapshot(originalEditConfig) as DomainConfig;
@@ -273,20 +267,24 @@
   }
 
   function handleInlineDelete(domain: string) {
-    selectedDomain = domain;
+    deletingDomain = domain;
     showDeleteConfirm = true;
   }
 
   async function handleDeleteDomain() {
-    if (!selectedDomain) return;
+    const domain = deletingDomain;
+    if (!domain) return;
     try {
-      await removeDomainMsg(selectedDomain);
-      domains = domains.filter((d) => d.domain !== selectedDomain);
-      selectedDomain = null;
-      editConfig = null;
-      originalEditConfig = null;
+      await removeDomainMsg(domain);
+      domains = domains.filter((d) => d.domain !== domain);
+      if (selectedDomain === domain) {
+        selectedDomain = null;
+        editConfig = null;
+        originalEditConfig = null;
+        saveStatus = 'idle';
+      }
       showDeleteConfirm = false;
-      saveStatus = 'idle';
+      deletingDomain = null;
     } catch (e) {
       console.error('[TimeWarden] Failed to delete domain:', e);
     }
@@ -357,208 +355,188 @@
           {:else}
             <div class="space-y-2" role="list" aria-label="Configured domains">
               {#each domains as config (config.domain)}
-                <DomainCard
-                  {config}
-                  isSelected={selectedDomain === config.domain}
-                  ontoggle={handleToggleDomain}
-                  onselect={handleSelectDomain}
-                  ondelete={handleInlineDelete}
-                />
+                <div role="listitem">
+                  <DomainCard
+                    {config}
+                    isSelected={selectedDomain === config.domain}
+                    ontoggle={handleToggleDomain}
+                    onselect={handleSelectDomain}
+                    ondelete={handleInlineDelete}
+                  />
+
+                  <!-- Inline edit panel -->
+                  {#if selectedDomain === config.domain && editConfig}
+                    <div class="border border-t-0 border-gray-200 dark:border-gray-700 rounded-b-lg bg-white dark:bg-gray-800">
+                      <div class="p-6 space-y-6">
+                        <!-- Default Daily Limit -->
+                        <div>
+                          <span class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Default Daily Limit</span>
+                          <div class="flex items-center gap-2">
+                            <label class="sr-only" for="edit-limit-hours">Hours</label>
+                            <input
+                              id="edit-limit-hours"
+                              type="number"
+                              value={editLimitHours}
+                              min="0"
+                              max="24"
+                              onchange={(e) =>
+                                handleEditLimitChange(
+                                  parseInt((e.target as HTMLInputElement).value) || 0,
+                                  editLimitMinutes,
+                                  editLimitSeconds
+                                )}
+                              class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
+                                     focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                            />
+                            <span class="text-sm text-gray-500 dark:text-gray-400">h</span>
+                            <label class="sr-only" for="edit-limit-minutes">Minutes</label>
+                            <input
+                              id="edit-limit-minutes"
+                              type="number"
+                              value={editLimitMinutes}
+                              min="0"
+                              max="59"
+                              onchange={(e) =>
+                                handleEditLimitChange(
+                                  editLimitHours,
+                                  parseInt((e.target as HTMLInputElement).value) || 0,
+                                  editLimitSeconds
+                                )}
+                              class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
+                                     focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                            />
+                            <span class="text-sm text-gray-500 dark:text-gray-400">m</span>
+                            <label class="sr-only" for="edit-limit-seconds">Seconds</label>
+                            <input
+                              id="edit-limit-seconds"
+                              type="number"
+                              value={editLimitSeconds}
+                              min="0"
+                              max="59"
+                              onchange={(e) =>
+                                handleEditLimitChange(
+                                  editLimitHours,
+                                  editLimitMinutes,
+                                  parseInt((e.target as HTMLInputElement).value) || 0
+                                )}
+                              class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
+                                     focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                            />
+                            <span class="text-sm text-gray-500 dark:text-gray-400">s</span>
+                            <span class="text-xs text-gray-400 dark:text-gray-500 ml-2">
+                              ({formatLimitSeconds(editConfig.dailyLimitSeconds)})
+                            </span>
+                          </div>
+                        </div>
+
+                        <!-- Domain Reset Time -->
+                        <fieldset>
+                          <legend class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Reset Time</legend>
+                          <div class="space-y-2">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="reset-mode"
+                                checked={!editUseCustomReset}
+                                onchange={() => handleEditResetToggle(false)}
+                                class="text-blue-600 focus:ring-blue-500"
+                              />
+                              <span class="text-sm text-gray-700 dark:text-gray-300">
+                                Use global default
+                                <span class="text-gray-400 dark:text-gray-500">({settings.resetTime})</span>
+                              </span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="reset-mode"
+                                checked={editUseCustomReset}
+                                onchange={() => handleEditResetToggle(true)}
+                                class="text-blue-600 focus:ring-blue-500"
+                              />
+                              <span class="text-sm text-gray-700 dark:text-gray-300">Custom reset time</span>
+                            </label>
+                            {#if editUseCustomReset}
+                              <div class="ml-6 w-28">
+                                <TimePicker
+                                  value={editConfig.resetTime ?? settings.resetTime}
+                                  onchange={handleEditResetChange}
+                                />
+                              </div>
+                            {/if}
+                          </div>
+                        </fieldset>
+
+                        <!-- Pause Allowance -->
+                        <div>
+                          <label for="edit-pause" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Pause Allowance</label>
+                          <div class="flex items-center gap-2">
+                            <input
+                              id="edit-pause"
+                              type="number"
+                              value={Math.floor(editConfig.pauseAllowanceSeconds / 60)}
+                              min="0"
+                              max="60"
+                              onchange={(e) =>
+                                handleEditPauseChange(
+                                  (parseInt((e.target as HTMLInputElement).value) || 0) * 60
+                                )}
+                              class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
+                                     focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                            />
+                            <span class="text-sm text-gray-500 dark:text-gray-400">minutes per day</span>
+                          </div>
+                          <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Maximum time you can pause tracking per day</p>
+                        </div>
+
+                        <!-- Day Overrides -->
+                        <div>
+                          <span class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Day Overrides</span>
+                          <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                            Customize limits and reset times for specific days. Click "Default" to set a custom value.
+                          </p>
+                          <DayOverrideGrid
+                            dayOverrides={editConfig.dayOverrides}
+                            defaultLimitSeconds={editConfig.dailyLimitSeconds}
+                            defaultResetTime={editEffectiveResetTime}
+                            {lockedDay}
+                            onchange={handleDayOverridesChange}
+                          />
+                        </div>
+                      </div>
+
+                      <!-- Action bar -->
+                      <div class="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700 rounded-b-lg flex items-center justify-end gap-3">
+                        {#if saveStatus === 'saved'}
+                          <span class="text-sm text-green-600 dark:text-green-400" role="status">Saved!</span>
+                        {:else if saveStatus === 'error'}
+                          <span class="text-sm text-red-600 dark:text-red-400" role="alert">Save failed</span>
+                        {/if}
+                        {#if isDirty}
+                          <button
+                            type="button"
+                            onclick={handleRevertEdit}
+                            class="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                          >
+                            Revert Changes
+                          </button>
+                        {/if}
+                        <button
+                          type="button"
+                          onclick={handleSaveEdit}
+                          disabled={saveStatus === 'saving'}
+                          class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {saveStatus === 'saving' ? 'Saving...' : 'Save Changes'}
+                        </button>
+                      </div>
+                    </div>
+                  {/if}
+                </div>
               {/each}
             </div>
           {/if}
         </section>
-
-        <!-- Domain Edit Panel -->
-        {#if editConfig && selectedDomain}
-          <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm" aria-label="Edit domain: {editConfig.domain}">
-            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Editing: <span class="text-blue-600 dark:text-blue-400">{editConfig.domain}</span>
-              </h2>
-            </div>
-
-            <div class="p-6 space-y-6">
-              <!-- Default Daily Limit -->
-              <div>
-                <span class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Default Daily Limit</span>
-                <div class="flex items-center gap-2">
-                  <label class="sr-only" for="edit-limit-hours">Hours</label>
-                  <input
-                    id="edit-limit-hours"
-                    type="number"
-                    value={editLimitHours}
-                    min="0"
-                    max="24"
-                    onchange={(e) =>
-                      handleEditLimitChange(
-                        parseInt((e.target as HTMLInputElement).value) || 0,
-                        editLimitMinutes,
-                        editLimitSeconds
-                      )}
-                    class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
-                           focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                  />
-                  <span class="text-sm text-gray-500 dark:text-gray-400">h</span>
-                  <label class="sr-only" for="edit-limit-minutes">Minutes</label>
-                  <input
-                    id="edit-limit-minutes"
-                    type="number"
-                    value={editLimitMinutes}
-                    min="0"
-                    max="59"
-                    onchange={(e) =>
-                      handleEditLimitChange(
-                        editLimitHours,
-                        parseInt((e.target as HTMLInputElement).value) || 0,
-                        editLimitSeconds
-                      )}
-                    class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
-                           focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                  />
-                  <span class="text-sm text-gray-500 dark:text-gray-400">m</span>
-                  <label class="sr-only" for="edit-limit-seconds">Seconds</label>
-                  <input
-                    id="edit-limit-seconds"
-                    type="number"
-                    value={editLimitSeconds}
-                    min="0"
-                    max="59"
-                    onchange={(e) =>
-                      handleEditLimitChange(
-                        editLimitHours,
-                        editLimitMinutes,
-                        parseInt((e.target as HTMLInputElement).value) || 0
-                      )}
-                    class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
-                           focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                  />
-                  <span class="text-sm text-gray-500 dark:text-gray-400">s</span>
-                  <span class="text-xs text-gray-400 dark:text-gray-500 ml-2">
-                    ({formatLimitSeconds(editConfig.dailyLimitSeconds)})
-                  </span>
-                </div>
-              </div>
-
-              <!-- Domain Reset Time -->
-              <fieldset>
-                <legend class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Reset Time</legend>
-                <div class="space-y-2">
-                  <label class="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="reset-mode"
-                      checked={!editUseCustomReset}
-                      onchange={() => handleEditResetToggle(false)}
-                      class="text-blue-600 focus:ring-blue-500"
-                    />
-                    <span class="text-sm text-gray-700 dark:text-gray-300">
-                      Use global default
-                      <span class="text-gray-400 dark:text-gray-500">({settings.resetTime})</span>
-                    </span>
-                  </label>
-                  <label class="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="reset-mode"
-                      checked={editUseCustomReset}
-                      onchange={() => handleEditResetToggle(true)}
-                      class="text-blue-600 focus:ring-blue-500"
-                    />
-                    <span class="text-sm text-gray-700 dark:text-gray-300">Custom reset time</span>
-                  </label>
-                  {#if editUseCustomReset}
-                    <div class="ml-6 w-28">
-                      <TimePicker
-                        value={editConfig.resetTime ?? settings.resetTime}
-                        onchange={handleEditResetChange}
-                      />
-                    </div>
-                  {/if}
-                </div>
-              </fieldset>
-
-              <!-- Pause Allowance -->
-              <div>
-                <label for="edit-pause" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Pause Allowance</label>
-                <div class="flex items-center gap-2">
-                  <input
-                    id="edit-pause"
-                    type="number"
-                    value={Math.floor(editConfig.pauseAllowanceSeconds / 60)}
-                    min="0"
-                    max="60"
-                    onchange={(e) =>
-                      handleEditPauseChange(
-                        (parseInt((e.target as HTMLInputElement).value) || 0) * 60
-                      )}
-                    class="w-20 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm
-                           focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                  />
-                  <span class="text-sm text-gray-500 dark:text-gray-400">minutes per day</span>
-                </div>
-                <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Maximum time you can pause tracking per day</p>
-              </div>
-
-              <!-- Day Overrides -->
-              <div>
-                <span class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Day Overrides</span>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                  Customize limits and reset times for specific days. Click "Default" to set a custom value.
-                </p>
-                <DayOverrideGrid
-                  dayOverrides={editConfig.dayOverrides}
-                  defaultLimitSeconds={editConfig.dailyLimitSeconds}
-                  defaultResetTime={editEffectiveResetTime}
-                  {lockedDay}
-                  onchange={handleDayOverridesChange}
-                />
-              </div>
-            </div>
-
-            <!-- Action bar -->
-            <div class="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700 rounded-b-lg flex items-center justify-between">
-              <button
-                type="button"
-                onclick={() => (showDeleteConfirm = true)}
-                class="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
-              >
-                Delete Domain
-              </button>
-              <div class="flex items-center gap-3">
-                {#if saveStatus === 'saved'}
-                  <span class="text-sm text-green-600 dark:text-green-400" role="status">Saved!</span>
-                {:else if saveStatus === 'error'}
-                  <span class="text-sm text-red-600 dark:text-red-400" role="alert">Save failed</span>
-                {/if}
-                {#if isDirty}
-                  <button
-                    type="button"
-                    onclick={handleRevertEdit}
-                    class="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-                  >
-                    Revert Changes
-                  </button>
-                {/if}
-                <button
-                  type="button"
-                  onclick={handleCancelEdit}
-                  class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onclick={handleSaveEdit}
-                  disabled={saveStatus === 'saving'}
-                  class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {saveStatus === 'saving' ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-            </div>
-          </section>
-        {/if}
       </div>
     {/if}
   </div>
@@ -568,8 +546,8 @@
 <ConfirmDialog
   open={showDeleteConfirm}
   title="Delete Domain"
-  message={`Are you sure you want to delete "${selectedDomain}"? This will remove all settings for this domain. Usage history will be preserved.`}
+  message={`Are you sure you want to delete "${deletingDomain}"? This will remove all settings for this domain. Usage history will be preserved.`}
   confirmLabel="Delete"
   onconfirm={handleDeleteDomain}
-  oncancel={() => (showDeleteConfirm = false)}
+  oncancel={() => { showDeleteConfirm = false; deletingDomain = null; }}
 />
